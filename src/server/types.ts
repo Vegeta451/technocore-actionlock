@@ -69,6 +69,8 @@ export interface ActionIntent {
   reversible?: boolean;
   boundary?: "inspection" | "downstream";
   argumentsHash?: string;
+  evidenceContextHash?: string;
+  executionPolicyHash?: string;
 }
 
 export interface ActionLockDecision {

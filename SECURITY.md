@@ -7,7 +7,7 @@
 3. Message URLs are data and are not followed automatically.
 4. Embedded Technocore GET-write routes are blocked.
 5. Evidence receipts bind the room, sequence, sender, text, verification state, and content hash.
-6. Action hashes bind evidence, trusted tool policy, target, execution boundary, and canonical arguments.
+6. Versioned action hashes bind the complete evidence receipt, downstream server, tool name, executable policy, target, execution boundary, and canonical arguments.
 7. Remote shell, wallet, and social actions cannot be approved.
 8. Approval grants are short-lived, domain-separated, exact-action tokens consumed atomically before execution.
 9. The hosted application contains no root secret, private key, downstream config, approval issuer, or write endpoint.
@@ -35,6 +35,7 @@
 - The live Technocore read API may expose a DID and nonce without the original signature. Such records are labelled `server_signed_lane`, not independently verified.
 - Pattern findings are triage evidence, not proof that text is malicious or safe.
 - Approval is consumed before forwarding. A downstream timeout or failure requires a fresh human review and approval.
+- Audit storage has hard byte and entry quotas. Quota or storage failures stop the gateway rather than dropping audit records.
 - The HMAC checkpoint does not prevent coordinated rollback of both local audit files. Export the head hash to an external append-only log when rollback detection matters.
 - Root-secret compromise allows forged local evidence, approvals, and checkpoints. Rotate it and discard untrusted local state after compromise.
 - Trusted config compromise can replace a downstream command or misclassify its capability. Treat config changes as code changes and review them.

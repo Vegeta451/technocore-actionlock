@@ -34,6 +34,13 @@ describe("audit chain", () => {
     const tampered = (await readFile(path, "utf8")).replace('"decision":"block"', '"decision":"allow"');
     await writeFile(path, tampered);
     expect((await verifyAuditChain(path, { checkpointSecret })).valid).toBe(false);
+    await expect(
+      appendAuditEntry(
+        path,
+        { actionHash: "c".repeat(64), decision: "block", rule: "ACTIONLOCK-020" },
+        { checkpointSecret },
+      ),
+    ).rejects.toThrow(/invalid ActionLock audit chain/);
   });
 
   it("serializes concurrent appenders into one valid chain", async () => {
@@ -57,5 +64,24 @@ describe("audit chain", () => {
     expect(result.valid).toBe(true);
     expect(result.entries).toBe(20);
     expect(result.checkpointValid).toBe(true);
+  });
+
+  it("fails closed when the configured audit quota is reached", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "actionlock-audit-quota-"));
+    directories.push(directory);
+    const path = join(directory, "audit.ndjson");
+    await appendAuditEntry(
+      path,
+      { actionHash: "a".repeat(64), decision: "block", rule: "ACTIONLOCK-020" },
+      { checkpointSecret, maxEntries: 1 },
+    );
+    await expect(
+      appendAuditEntry(
+        path,
+        { actionHash: "b".repeat(64), decision: "block", rule: "ACTIONLOCK-020" },
+        { checkpointSecret, maxEntries: 1 },
+      ),
+    ).rejects.toThrow(/quota exceeded/);
+    expect((await verifyAuditChain(path, { checkpointSecret })).valid).toBe(true);
   });
 });

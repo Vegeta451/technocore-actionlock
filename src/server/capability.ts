@@ -11,12 +11,15 @@ const ALWAYS_SENSITIVE = new Set(["shell", "wallet", "social"]);
 
 export function actionHash(action: ActionIntent, provenance: Provenance): string {
   return jsonHash({
+    domain: "actionlock:action:v2",
     capability: action.capability,
     operation: action.operation,
     target: action.target ?? null,
     boundary: action.boundary ?? "inspection",
     argumentsHash: action.argumentsHash ?? null,
     sourceHash: provenance.contentHash,
+    evidenceContextHash: action.evidenceContextHash ?? null,
+    executionPolicyHash: action.executionPolicyHash ?? null,
   });
 }
 

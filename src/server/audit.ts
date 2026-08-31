@@ -31,7 +31,7 @@ export interface AuditEntry {
   entryHash: string;
 }
 
-interface AuditCheckpoint {
+interface AuditCheckpointV1 {
   version: 1;
   entries: number;
   headHash: string | null;
@@ -39,7 +39,20 @@ interface AuditCheckpoint {
   signature: string | null;
 }
 
+interface AuditCheckpointV2 {
+  version: 2;
+  entries: number;
+  headHash: string | null;
+  fileBytes: number;
+  updatedAt: string;
+  signature: string | null;
+}
+
+type AuditCheckpoint = AuditCheckpointV1 | AuditCheckpointV2;
+
 const LOCK_STALE_MS = 30_000;
+const DEFAULT_MAX_AUDIT_BYTES = 8 * 1024 * 1024;
+const DEFAULT_MAX_AUDIT_ENTRIES = 50_000;
 
 function hashEntry(value: Omit<AuditEntry, "entryHash">): string {
   return jsonHash(value);
@@ -112,14 +125,20 @@ async function withFileLock<T>(path: string, callback: () => Promise<T>): Promis
 
 function checkpointSignature(value: Omit<AuditCheckpoint, "signature">, secret: string): string {
   return createHmac("sha256", secret)
-    .update("actionlock:audit-head:v1\n", "utf8")
+    .update(`actionlock:audit-head:v${value.version}\n`, "utf8")
     .update(canonicalJson(value), "utf8")
     .digest("base64url");
 }
 
-async function writeCheckpoint(path: string, entries: number, headHash: string | null, secret?: string): Promise<void> {
-  const unsigned = { version: 1 as const, entries, headHash, updatedAt: new Date().toISOString() };
-  const checkpoint: AuditCheckpoint = {
+async function writeCheckpoint(
+  path: string,
+  entries: number,
+  headHash: string | null,
+  fileBytes: number,
+  secret?: string,
+): Promise<void> {
+  const unsigned = { version: 2 as const, entries, headHash, fileBytes, updatedAt: new Date().toISOString() };
+  const checkpoint: AuditCheckpointV2 = {
     ...unsigned,
     signature: secret ? checkpointSignature(unsigned, secret) : null,
   };
@@ -129,15 +148,34 @@ async function writeCheckpoint(path: string, entries: number, headHash: string |
   await rename(temporaryPath, checkpointPath);
 }
 
+async function readAppendState(
+  path: string,
+  _checkpointSecret?: string,
+): Promise<{ entries: number; headHash: string | null; fileBytes: number }> {
+  const entries = await readEntries(path);
+  const chain = validateEntries(entries);
+  if (!chain.valid) throw new Error("Refusing to append to an invalid ActionLock audit chain");
+  let fileBytes = 0;
+  try {
+    fileBytes = (await stat(path)).size;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
+  return { entries: entries.length, headHash: chain.headHash, fileBytes };
+}
+
 export async function appendAuditEntry(
   path: string,
   value: AuditInput,
-  options: { checkpointSecret?: string } = {},
+  options: { checkpointSecret?: string; maxBytes?: number; maxEntries?: number } = {},
 ): Promise<AuditEntry> {
   return withFileLock(path, async () => {
-    const entries = await readEntries(path);
-    const current = validateEntries(entries);
-    if (!current.valid) throw new Error("Refusing to append to an invalid ActionLock audit chain");
+    const current = await readAppendState(path, options.checkpointSecret);
+    const maxBytes = options.maxBytes ?? DEFAULT_MAX_AUDIT_BYTES;
+    const maxEntries = options.maxEntries ?? DEFAULT_MAX_AUDIT_ENTRIES;
+    if (current.entries >= maxEntries || current.fileBytes >= maxBytes) {
+      throw new Error("ActionLock audit quota exceeded");
+    }
     const unsigned: Omit<AuditEntry, "entryHash"> = {
       version: 1,
       timestamp: new Date().toISOString(),
@@ -153,8 +191,11 @@ export async function appendAuditEntry(
       previousHash: current.headHash,
     };
     const entry = { ...unsigned, entryHash: hashEntry(unsigned) };
-    await appendFile(path, `${canonicalJson(entry)}\n`, { encoding: "utf8", mode: 0o600 });
-    await writeCheckpoint(path, entries.length + 1, entry.entryHash, options.checkpointSecret);
+    const line = `${canonicalJson(entry)}\n`;
+    const nextBytes = current.fileBytes + Buffer.byteLength(line, "utf8");
+    if (nextBytes > maxBytes) throw new Error("ActionLock audit quota exceeded");
+    await appendFile(path, line, { encoding: "utf8", mode: 0o600 });
+    await writeCheckpoint(path, current.entries + 1, entry.entryHash, nextBytes, options.checkpointSecret);
     return entry;
   });
 }
@@ -173,13 +214,26 @@ export async function verifyAuditChain(
   let checkpointValid: boolean | null = null;
   try {
     const checkpoint = JSON.parse(await readFile(`${path}.head.json`, "utf8")) as AuditCheckpoint;
-    const unsigned = {
-      version: checkpoint.version,
-      entries: checkpoint.entries,
-      headHash: checkpoint.headHash,
-      updatedAt: checkpoint.updatedAt,
-    };
-    const matchesHead = checkpoint.version === 1 && checkpoint.entries === entries.length && checkpoint.headHash === chain.headHash;
+    const fileBytes = (await stat(path)).size;
+    const unsigned = checkpoint.version === 2
+      ? {
+          version: checkpoint.version,
+          entries: checkpoint.entries,
+          headHash: checkpoint.headHash,
+          fileBytes: checkpoint.fileBytes,
+          updatedAt: checkpoint.updatedAt,
+        }
+      : {
+          version: checkpoint.version,
+          entries: checkpoint.entries,
+          headHash: checkpoint.headHash,
+          updatedAt: checkpoint.updatedAt,
+        };
+    const matchesHead =
+      (checkpoint.version === 1 || checkpoint.version === 2) &&
+      checkpoint.entries === entries.length &&
+      checkpoint.headHash === chain.headHash &&
+      (checkpoint.version !== 2 || checkpoint.fileBytes === fileBytes);
     if (options.checkpointSecret) {
       checkpointValid = Boolean(
         matchesHead && checkpoint.signature === checkpointSignature(unsigned, options.checkpointSecret),

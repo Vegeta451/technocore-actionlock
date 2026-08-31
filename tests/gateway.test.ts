@@ -34,10 +34,31 @@ const config: GatewayConfig = {
           target: "local report workspace",
           maxArgumentBytes: 2_000,
         },
+        write_shadow: {
+          capability: "file_write",
+          operation: "write reviewed report",
+          target: "local report workspace",
+          maxArgumentBytes: 2_000,
+        },
         run_shell: {
           capability: "shell",
           operation: "run command",
           target: "local shell",
+          maxArgumentBytes: 2_000,
+        },
+      },
+    },
+    {
+      id: "alternate",
+      command: "different-unused-command",
+      args: ["--alternate"],
+      cwd: "alternate-workspace",
+      inheritEnv: ["PATH"],
+      tools: {
+        write_report: {
+          capability: "file_write",
+          operation: "write reviewed report",
+          target: "local report workspace",
           maxArgumentBytes: 2_000,
         },
       },
@@ -159,5 +180,28 @@ describe("enforced MCP gateway", () => {
         evidenceToken: `${evidenceToken}x`,
       }),
     ).toThrow(/Evidence receipt/);
+  });
+
+  it("binds approval to the exact server, tool, executable policy, and evidence receipt", async () => {
+    const { gateway, evidenceToken } = await fixture();
+    const request = {
+      server: "trusted",
+      tool: "write_report",
+      arguments: { title: "Evidence", body: "Reviewed" },
+      evidenceToken,
+    };
+    const approved = gateway.preview(request);
+    const approvalToken = issueApprovalGrant({ actionHash: approved.decision.actionHash, secret: approvalSecret });
+
+    expect(gateway.preview({ ...request, tool: "write_shadow" }).decision.actionHash)
+      .not.toBe(approved.decision.actionHash);
+    expect(gateway.preview({ ...request, server: "alternate" }).decision.actionHash)
+      .not.toBe(approved.decision.actionHash);
+    expect((await gateway.execute({ ...request, tool: "write_shadow", approvalToken })).approval).toBe("invalid");
+
+    const secondEvidence = issueEvidenceReceipt({ event: scanEvent(), secret: evidenceSecret }).token;
+    const secondPreview = gateway.preview({ ...request, evidenceToken: secondEvidence });
+    expect(secondPreview.decision.actionHash).not.toBe(approved.decision.actionHash);
+    expect((await gateway.execute({ ...request, evidenceToken: secondEvidence, approvalToken })).approval).toBe("invalid");
   });
 });

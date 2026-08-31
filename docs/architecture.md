@@ -16,7 +16,7 @@ Technocore room
   -> HMAC evidence receipt
   -> trusted server/tool policy
   -> canonical argument hash
-  -> policy decision + action hash
+  -> versioned action hash over full evidence + server/tool/executable policy + arguments
   -> external human approval
   -> atomic replay consumption
   -> configured downstream MCP call
@@ -34,6 +34,7 @@ Technocore room
 - Missing, invalid, expired, substituted, or replayed approval: not forwarded.
 - Downstream tool not advertised after startup: rejected.
 - Invalid audit chain: new entries are refused.
+- Audit byte or entry quota reached: the gateway fails closed instead of dropping records.
 
 ## Local state
 

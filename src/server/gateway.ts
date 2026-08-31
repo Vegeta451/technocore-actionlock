@@ -37,6 +37,8 @@ export interface GatewayPreview {
     tool: string;
     arguments: Record<string, unknown>;
     argumentsHash: string;
+    evidenceContextHash: string;
+    executionPolicyHash: string;
     policy: GatewayToolPolicy;
   };
 }
@@ -173,6 +175,22 @@ export class ActionLockGateway {
       verification: evidence.event.verification,
     };
     const argumentsHash = jsonHash(request.arguments);
+    const evidenceContextHash = jsonHash({
+      domain: "actionlock:evidence-context:v1",
+      claims: evidence,
+    });
+    const executionPolicyHash = jsonHash({
+      domain: "actionlock:execution-policy:v1",
+      server: {
+        id: resolved.server.id,
+        command: resolved.server.command,
+        args: resolved.server.args,
+        cwd: resolved.server.cwd ?? null,
+        inheritEnv: resolved.server.inheritEnv,
+      },
+      tool: request.tool,
+      policy: resolved.policy,
+    });
     return {
       evidence,
       risk: analyzeText(evidence.event.text),
@@ -183,6 +201,8 @@ export class ActionLockGateway {
         target: resolved.policy.target,
         boundary: "downstream",
         argumentsHash,
+        evidenceContextHash,
+        executionPolicyHash,
       },
       server: resolved.server,
       review: {
@@ -190,6 +210,8 @@ export class ActionLockGateway {
         tool: request.tool,
         arguments: request.arguments,
         argumentsHash,
+        evidenceContextHash,
+        executionPolicyHash,
         policy: resolved.policy,
       },
     };

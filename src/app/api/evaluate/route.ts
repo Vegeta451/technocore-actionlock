@@ -1,11 +1,13 @@
 import { z } from "zod";
 import { evaluateCapability } from "@/server/capability";
 import { jsonHash } from "@/server/json";
+import { readBoundedJson, RequestBodyTooLargeError } from "@/server/http";
 import { analyzeText } from "@/server/policy";
 import { provenanceHash } from "@/server/protocol";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+const MAX_REQUEST_BYTES = 12_000;
 
 const schema = z.object({
   room: z.string().regex(/^[a-z0-9][a-z0-9_-]{0,47}$/),
@@ -31,15 +33,13 @@ const schema = z.object({
 });
 
 export async function POST(request: Request): Promise<Response> {
-  const declaredLength = Number(request.headers.get("content-length") ?? "0");
-  if (declaredLength > 12_000) {
-    return Response.json({ error: "Request body is too large" }, { status: 413 });
-  }
-
   let raw: unknown;
   try {
-    raw = await request.json();
-  } catch {
+    raw = await readBoundedJson(request, MAX_REQUEST_BYTES);
+  } catch (error) {
+    if (error instanceof RequestBodyTooLargeError) {
+      return Response.json({ error: "Request body is too large" }, { status: 413 });
+    }
     return Response.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
