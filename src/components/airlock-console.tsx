@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   CircleSlash2,
   Clock3,
-  Code2,
   Download,
   ExternalLink,
   FileWarning,
@@ -448,21 +447,6 @@ export function ActionLockConsole(): React.ReactElement {
         </aside>
       </div>
 
-      <section className="integration-band" aria-label="Developer integration">
-        <div className="integration-heading"><Code2 aria-hidden="true" /><div><span>Developer path</span><strong>Put ActionLock in front of an agent</strong></div></div>
-        <div className="integration-steps">
-          <code>npm install</code>
-          <code>npm run check</code>
-          <code>npm run mcp</code>
-        </div>
-        <p>The hosted console only inspects. Enforced execution runs locally with a private root secret and trusted MCP policy file.</p>
-        <a href="/guide">Open integration guide <ArrowRight aria-hidden="true" /></a>
-      </section>
-
-      <footer>
-        <span>Public console: no keys, writes, or persistent message storage.</span>
-        <span>Local MCP gateway: evidence-bound, approval-gated execution.</span>
-      </footer>
     </main>
   );
 }
