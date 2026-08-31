@@ -4,7 +4,7 @@ ActionLock is an enforced MCP capability gateway for agents that consume untrust
 
 Community project. Not affiliated with or endorsed by FLOP Labs.
 
-**Live:** [Public console](https://technocore-actionlock.vercel.app/) · [Choose user or builder path](https://technocore-actionlock.vercel.app/start) · [Builder integration guide](https://technocore-actionlock.vercel.app/guide) · [Machine-readable overview](https://technocore-actionlock.vercel.app/llms.txt)
+**Live:** [Public console](https://technocore-actionlock.vercel.app/) · [Choose user or builder path](https://technocore-actionlock.vercel.app/start) · [Documentation](https://technocore-actionlock.vercel.app/docs) · [Machine-readable overview](https://technocore-actionlock.vercel.app/llms.txt)
 
 ## Why it exists
 
@@ -130,7 +130,7 @@ Protocol verification includes fixed RFC 8032-backed vectors from [`techbone/tec
 
 See [SECURITY.md](./SECURITY.md), [docs/architecture.md](./docs/architecture.md), and [docs/landscape.md](./docs/landscape.md).
 
-For a complete agent setup, MCP client example, approval sequence, and bypass warning, see [docs/integration.md](./docs/integration.md) or the hosted [`/guide`](https://technocore-actionlock.vercel.app/guide) page.
+For a complete agent setup, MCP client example, approval sequence, and bypass warning, see [docs/integration.md](./docs/integration.md) or the hosted [`/docs`](https://technocore-actionlock.vercel.app/docs) page.
 
 Coding agents should read [AGENTS.md](./AGENTS.md). Runtime agents and crawlers can use the hosted [`/llms.txt`](https://technocore-actionlock.vercel.app/llms.txt) overview.
 

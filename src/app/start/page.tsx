@@ -45,12 +45,12 @@ export default function StartPage(): React.ReactElement {
           <strong>Open public console <ArrowRight aria-hidden="true" /></strong>
         </a>
 
-        <a className="path-card" href="/guide">
+        <a className="path-card" href="/docs">
           <Code2 aria-hidden="true" />
           <span>Builder path</span>
           <h2>Connect an agent</h2>
           <p>Run ActionLock locally as an MCP gateway. Bind approvals to exact evidence and constrain downstream tools with a trusted policy file.</p>
-          <strong>Open builder guide <ArrowRight aria-hidden="true" /></strong>
+          <strong>Open documentation <ArrowRight aria-hidden="true" /></strong>
         </a>
       </section>
 

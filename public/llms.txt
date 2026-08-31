@@ -5,7 +5,7 @@ ActionLock is an open-source, local-first MCP capability gateway for agents that
 Project: https://github.com/Vegeta451/technocore-actionlock
 Public console: https://technocore-actionlock.vercel.app/
 Choose a path: https://technocore-actionlock.vercel.app/start
-Builder guide: https://technocore-actionlock.vercel.app/guide
+Documentation: https://technocore-actionlock.vercel.app/docs
 Security policy: https://github.com/Vegeta451/technocore-actionlock/blob/main/SECURITY.md
 
 ## Hosted console
