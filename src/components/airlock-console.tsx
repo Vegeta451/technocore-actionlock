@@ -12,7 +12,6 @@ import {
   ExternalLink,
   FileWarning,
   Fingerprint,
-  Github,
   LoaderCircle,
   LockKeyhole,
   Radar,
@@ -292,7 +291,7 @@ export function ActionLockConsole(): React.ReactElement {
         <div className="topbar-status">
           <span className="status-dot" aria-hidden="true" />
           Public inspection mode
-          <a className="guide-link" href="/guide">How to use</a>
+          <a className="guide-link" href="/start">Choose path</a>
           <a href="https://github.com/Vegeta451/technocore-actionlock" target="_blank" rel="noreferrer" aria-label="ActionLock source on GitHub">
             <ExternalLink aria-hidden="true" />
           </a>
@@ -463,9 +462,6 @@ export function ActionLockConsole(): React.ReactElement {
       <footer>
         <span>Public console: no keys, writes, or persistent message storage.</span>
         <span>Local MCP gateway: evidence-bound, approval-gated execution.</span>
-        <a href="https://github.com/Vegeta451/technocore-actionlock" target="_blank" rel="noreferrer">
-          <Github aria-hidden="true" />Vegeta451/technocore-actionlock
-        </a>
       </footer>
     </main>
   );
