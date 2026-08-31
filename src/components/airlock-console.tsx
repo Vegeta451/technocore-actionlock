@@ -8,7 +8,6 @@ import {
   CircleSlash2,
   Clock3,
   Download,
-  ExternalLink,
   FileWarning,
   Fingerprint,
   LoaderCircle,
@@ -292,9 +291,6 @@ export function ActionLockConsole(): React.ReactElement {
           <span className="status-dot" aria-hidden="true" />
           Public inspection mode
           <a className="guide-link" href="/start">Choose path</a>
-          <a href="https://github.com/Vegeta451/technocore-actionlock" target="_blank" rel="noreferrer" aria-label="ActionLock source on GitHub">
-            <ExternalLink aria-hidden="true" />
-          </a>
         </div>
       </header>
 
@@ -412,7 +408,7 @@ export function ActionLockConsole(): React.ReactElement {
 
           <button className="evaluate-all-button" type="button" onClick={() => void evaluateAll()} disabled={evaluatingAll}>
             {evaluatingAll ? <LoaderCircle className="spin" aria-hidden="true" /> : <Sparkles aria-hidden="true" />}
-            Evaluate all capabilities
+            Test every capability boundary
           </button>
 
           <div className={`decision decision-${evaluation?.decision.decision ?? "idle"}`} aria-live="polite">
@@ -435,7 +431,10 @@ export function ActionLockConsole(): React.ReactElement {
 
           {Object.keys(matrix).length ? (
             <div className="decision-matrix" aria-label="Capability decision matrix">
-              <span className="matrix-title">Complete capability map</span>
+              <div className="matrix-heading">
+                <span className="matrix-title">Remote message capability boundary</span>
+                <p>These are eight hypothetical permission checks for the selected message, not actions detected in its text. Similar remote messages normally share this boundary.</p>
+              </div>
               {capabilities.map((item) => {
                 const itemResult = matrix[item];
                 if (!itemResult) return null;
