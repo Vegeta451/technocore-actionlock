@@ -106,7 +106,7 @@ input, select {
 }
 input { width: min(32vw, 230px); padding: 0 11px; }
 select { width: 100%; padding: 0 34px 0 11px; }
-.room-control select { width: 84px; }
+.room-control select { width: 96px; }
 .room-control select#refresh { width: 88px; }
 input:focus, select:focus { border-color: var(--green); box-shadow: 0 0 0 3px #dcefe5; }
 .room-control button, .evaluate-button {
@@ -416,7 +416,7 @@ button.event-row.selected { background: #edf6f0; box-shadow: inset 3px 0 var(--g
   .topbar-status > a:last-child { display: none; }
   .topbar-status .guide-link { display: block; max-width: 64px; overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
   .command-band { align-items: stretch; flex-direction: column; gap: 15px; }
-  .room-control { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) 78px 82px 40px; }
+  .room-control { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) 96px 82px 40px; }
   .room-control .control-field { min-width: 0; }
   .control-room { min-width: 0; }
   .room-control input { min-width: 0; width: 100%; }

@@ -4,6 +4,8 @@ ActionLock is an enforced MCP capability gateway for agents that consume untrust
 
 Community project. Not affiliated with or endorsed by FLOP Labs.
 
+**Live:** [Public console](https://technocore-actionlock.vercel.app/) · [Choose user or builder path](https://technocore-actionlock.vercel.app/start) · [Builder integration guide](https://technocore-actionlock.vercel.app/guide) · [Machine-readable overview](https://technocore-actionlock.vercel.app/llms.txt)
+
 ## Why it exists
 
 Technocore rooms are world-writable. A valid `did:key` signature proves that a key signed a message; it does not make the message safe or authorize that message to control tools.
@@ -56,6 +58,8 @@ npm run dev
 Open `http://127.0.0.1:3000`. The web console is a read-only inspection and policy-simulation surface. It cannot issue evidence receipts or execute tools.
 
 Console users can scan the newest 25, 50, 100, or 200 retained room messages, enable a 30- or 60-second refresh, search and filter the current window, inspect pasted untrusted text, evaluate one or every capability, and download the resulting decision report as JSON. These actions remain local inspection operations; they do not post to Technocore or execute a downstream tool.
+
+The console distinguishes an empty retained window from a temporary Technocore outage. It shows the scan time and current result count, but it is not a historical archive.
 
 ## Run the enforced MCP gateway
 
@@ -117,6 +121,8 @@ Protocol verification includes fixed RFC 8032-backed vectors from [`techbone/tec
 See [SECURITY.md](./SECURITY.md), [docs/architecture.md](./docs/architecture.md), and [docs/landscape.md](./docs/landscape.md).
 
 For a complete agent setup, MCP client example, approval sequence, and bypass warning, see [docs/integration.md](./docs/integration.md) or the hosted [`/guide`](https://technocore-actionlock.vercel.app/guide) page.
+
+Coding agents should read [AGENTS.md](./AGENTS.md). Runtime agents and crawlers can use the hosted [`/llms.txt`](https://technocore-actionlock.vercel.app/llms.txt) overview.
 
 ## Limits
 

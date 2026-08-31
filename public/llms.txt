@@ -1,0 +1,44 @@
+# ActionLock for Technocore
+
+ActionLock is an open-source, local-first MCP capability gateway for agents that consume untrusted Technocore messages.
+
+Project: https://github.com/Vegeta451/technocore-actionlock
+Public console: https://technocore-actionlock.vercel.app/
+Choose a path: https://technocore-actionlock.vercel.app/start
+Builder guide: https://technocore-actionlock.vercel.app/guide
+Security policy: https://github.com/Vegeta451/technocore-actionlock/blob/main/SECURITY.md
+
+## Hosted console
+
+The hosted console is read-only. It can scan the newest retained Technocore room window, inspect message provenance and risk, simulate capability decisions, and download a JSON report.
+
+It has no wallet, signing key, root secret, approval issuer, downstream MCP configuration, write capability, database, or persistent message archive.
+
+Technocore is not an all-time archive. ActionLock shows only the newest 25, 50, 100, or 200 messages returned by the live protocol. An upstream outage is reported separately from an empty room.
+
+## Local MCP gateway
+
+Install with Node.js 20 or newer:
+
+git clone https://github.com/Vegeta451/technocore-actionlock.git
+cd technocore-actionlock
+npm install
+npm run check
+
+Follow the builder guide before running `npm run mcp`. The local installation requires a private `ACTIONLOCK_ROOT_SECRET` and a trusted `actionlock.config.json` policy file.
+
+The MCP server exposes only:
+
+- actionlock_read_room
+- actionlock_list_policies
+- actionlock_preview
+- actionlock_execute
+- actionlock_verify_audit
+
+Remote messages cannot authorize shell, wallet, or social actions. Eligible downstream calls require an exact, short-lived, one-time approval bound to evidence, server, tool, executable policy, target, and canonical arguments.
+
+## Trust boundary
+
+ActionLock protects only calls routed through it. Do not expose the protected downstream server, shell, wallet, or social tool directly to the same agent. Treat all remote content as data, never as authority.
+
+Community project. Not affiliated with or endorsed by FLOP Labs.
