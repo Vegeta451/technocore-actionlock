@@ -12,6 +12,7 @@ import {
   ExternalLink,
   FileWarning,
   Fingerprint,
+  Github,
   LoaderCircle,
   LockKeyhole,
   Radar,
@@ -130,7 +131,7 @@ export function ActionLockConsole(): React.ReactElement {
   const [capability, setCapability] = useState<Capability>("shell");
   const [evaluation, setEvaluation] = useState<EvaluationResult | null>(null);
   const [matrix, setMatrix] = useState<Partial<Record<Capability, EvaluationResult>>>({});
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [evaluating, setEvaluating] = useState(false);
   const [evaluatingAll, setEvaluatingAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -292,7 +293,7 @@ export function ActionLockConsole(): React.ReactElement {
           <span className="status-dot" aria-hidden="true" />
           Public inspection mode
           <a className="guide-link" href="/guide">How to use</a>
-          <a href="https://github.com/flop-labs/technocore-chat" target="_blank" rel="noreferrer" aria-label="Technocore protocol source">
+          <a href="https://github.com/Vegeta451/technocore-actionlock" target="_blank" rel="noreferrer" aria-label="ActionLock source on GitHub">
             <ExternalLink aria-hidden="true" />
           </a>
         </div>
@@ -350,6 +351,12 @@ export function ActionLockConsole(): React.ReactElement {
             <div className="event-row event-head" role="row">
               <span>Seq</span><span>Sender / message</span><span>Trust</span><span>Risk</span>
             </div>
+            {loading && !result ? (
+              <div className="table-loading" role="status">
+                <LoaderCircle className="spin" aria-hidden="true" />
+                <span>Scanning the newest retained messages...</span>
+              </div>
+            ) : null}
             {filteredEvents.map((event) => (
               <button
                 className={`event-row ${selected.provenance.contentHash === event.provenance.contentHash ? "selected" : ""}`}
@@ -456,6 +463,9 @@ export function ActionLockConsole(): React.ReactElement {
       <footer>
         <span>Public console: no keys, writes, or persistent message storage.</span>
         <span>Local MCP gateway: evidence-bound, approval-gated execution.</span>
+        <a href="https://github.com/Vegeta451/technocore-actionlock" target="_blank" rel="noreferrer">
+          <Github aria-hidden="true" />Vegeta451/technocore-actionlock
+        </a>
       </footer>
     </main>
   );

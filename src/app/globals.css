@@ -228,6 +228,17 @@ button.event-row.selected { background: #edf6f0; box-shadow: inset 3px 0 var(--g
   font-weight: 700;
   text-transform: uppercase;
 }
+.table-loading {
+  min-height: 72px;
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  padding: 10px 14px;
+  color: var(--muted);
+  border-bottom: 1px solid var(--line);
+  font-size: 11px;
+}
+.table-loading svg { width: 15px; flex: 0 0 15px; color: var(--green); }
 .event-copy { min-width: 0; display: grid; gap: 5px; }
 .event-copy b { font-size: 11px; font-weight: 700; }
 .event-copy small { overflow: hidden; color: #4e5550; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
@@ -332,6 +343,8 @@ footer {
   background: #fff;
   font-size: 11px;
 }
+footer a { display: inline-flex; gap: 7px; align-items: center; color: var(--green); font-weight: 700; text-decoration: none; }
+footer a svg { width: 15px; }
 
 .spin { animation: spin .9s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
