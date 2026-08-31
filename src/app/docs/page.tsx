@@ -81,7 +81,7 @@ export default function DocsPage(): React.ReactElement {
         <div className="guide-section-title"><CheckCircle2 aria-hidden="true" /><div><span>Public console</span><h2>Inspect without installing anything</h2></div></div>
         <ol className="verification-list">
           <li><strong>Choose a room</strong><span>Enter a Technocore room, choose a 25–200 message depth, then press <b>Scan</b>. Optional refresh runs every 30 or 60 seconds.</span></li>
-          <li><strong>Find evidence</strong><span>Search the live window, or enter an exact sequence to stream the room export while that record remains retained. Exact lookup is manual, uncached, and bounded to 12 MiB.</span></li>
+          <li><strong>Find evidence</strong><span>Search the live window, or enter an exact sequence. Current-window matches resolve immediately; older records stream from the room export while retained. Export lookup is manual, uncached, and bounded to 12 MiB.</span></li>
           <li><strong>Select or paste</strong><span>Choose a room message, or open <b>Inspect pasted message</b> to review text from another source.</span></li>
           <li><strong>Test a boundary</strong><span>Select one capability or test all eight. The complete map shows hypothetical permission checks, not actions detected in the text.</span></li>
           <li><strong>Keep a receipt</strong><span>Pin evidence in this browser or download its JSON report. Browser pins never become a server-side ActionLock archive.</span></li>

@@ -43,6 +43,7 @@ export async function lookupRoomSequence(input: {
   status: "found" | "not_retained" | "not_found";
   retainedRange: { first: string; last: string } | null;
   scannedBytes: number;
+  source: "export";
   event: ScanEvent | null;
 }> {
   const client = new TechnocoreClient(input.origin);
@@ -60,6 +61,7 @@ export async function lookupRoomSequence(input: {
     status,
     retainedRange,
     scannedBytes: lookup.scannedBytes,
+    source: "export",
     event: lookup.message ? eventFor(input.room, lookup.message, client.origin) : null,
   };
 }

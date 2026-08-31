@@ -53,6 +53,7 @@ interface LookupResult {
   status: "found" | "not_retained" | "not_found";
   retainedRange: { first: string; last: string } | null;
   scannedBytes: number;
+  source: "live_window" | "export";
   event: ScanEvent | null;
 }
 
@@ -262,6 +263,22 @@ export function ActionLockConsole(): React.ReactElement {
     setError(null);
     setLookupStatus(null);
     try {
+      const liveMatch = displayEvents.find((event) => event.message.seq === sequence);
+      if (liveMatch) {
+        const localResult: LookupResult = {
+          room,
+          sequence,
+          status: "found",
+          retainedRange: null,
+          scannedBytes: 0,
+          source: "live_window",
+          event: liveMatch,
+        };
+        setLookupStatus(localResult);
+        setExactEvent(liveMatch);
+        setSelected(liveMatch);
+        return;
+      }
       const response = await fetch(`/api/lookup?room=${encodeURIComponent(room)}&seq=${sequence}`);
       const payload = (await response.json()) as LookupResult & { error?: string };
       if (!response.ok) throw new Error(payload.error ?? "Sequence lookup failed");
@@ -418,7 +435,8 @@ export function ActionLockConsole(): React.ReactElement {
               {lookingUp ? <LoaderCircle className="spin" aria-hidden="true" /> : <Search aria-hidden="true" />}<span>Find</span>
             </button>
             <span className={`lookup-state lookup-${lookupStatus?.status ?? "idle"}`} aria-live="polite">
-              {lookupStatus?.status === "found" ? `Found in export (${Math.ceil(lookupStatus.scannedBytes / 1024)} KiB read)` : null}
+              {lookupStatus?.status === "found" && lookupStatus.source === "live_window" ? "Found in current window" : null}
+              {lookupStatus?.status === "found" && lookupStatus.source === "export" ? `Found in export (${Math.ceil(lookupStatus.scannedBytes / 1024)} KiB read)` : null}
               {lookupStatus?.status === "not_retained" ? `Not retained; export starts at ${lookupStatus.retainedRange?.first ?? "unknown"}` : null}
               {lookupStatus?.status === "not_found" ? "No matching record in the retained export" : null}
               {!lookupStatus ? "User-triggered export lookup; never runs on refresh" : null}

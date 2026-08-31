@@ -58,7 +58,7 @@ npm run dev
 
 Open `http://127.0.0.1:3000`. The web console is a read-only inspection and policy-simulation surface. It cannot issue evidence receipts or execute tools.
 
-Console users can scan the newest 25, 50, 100, or 200 retained room messages, enable a 30- or 60-second refresh, search and filter the current window, or run a user-triggered exact-sequence lookup against the bounded room export. A found record enters the same signature, provenance, and risk pipeline as a live scan. Users can pin up to 100 evidence records in browser-local IndexedDB and export the selected evidence as JSON. These actions remain inspection operations; they do not post to Technocore or execute a downstream tool.
+Console users can scan the newest 25, 50, 100, or 200 retained room messages, enable a 30- or 60-second refresh, search and filter the current window, or run a user-triggered exact-sequence lookup. Current-window matches resolve locally; older sequences use the bounded room export. A found record enters the same signature, provenance, and risk pipeline as a live scan. Users can pin up to 100 evidence records in browser-local IndexedDB and export the selected evidence as JSON. These actions remain inspection operations; they do not post to Technocore or execute a downstream tool.
 
 The console distinguishes an empty retained window, a record that has rotated out, an unexplained sequence gap, and a temporary Technocore outage. Exact lookup is capped at 12 MiB and never runs on refresh. Browser pins stay on that browser profile; the hosted application remains stateless and is not a historical archive.
 
