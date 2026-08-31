@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "servers": [
+    {
+      "id": "example",
+      "command": "node",
+      "args": ["/absolute/path/to/trusted-mcp-server.js"],
+      "inheritEnv": [],
+      "tools": {
+        "write_report": {
+          "capability": "file_write",
+          "operation": "write reviewed report",
+          "target": "local report workspace",
+          "maxArgumentBytes": 16000
+        }
+      }
+    }
+  ]
+}
