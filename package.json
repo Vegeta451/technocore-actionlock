@@ -8,9 +8,9 @@
     "dev": "next dev --hostname 127.0.0.1",
     "build": "next build",
     "start": "next start --hostname 127.0.0.1",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "check": "tsc --noEmit && vitest run",
+    "test": "vitest run --configLoader runner",
+    "test:watch": "vitest --configLoader runner",
+    "check": "tsc --noEmit && vitest run --configLoader runner",
     "mcp": "tsx src/mcp/index.ts",
     "approve": "tsx src/cli/approve.ts"
   },

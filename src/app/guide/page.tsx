@@ -85,14 +85,21 @@ export default function GuidePage(): React.ReactElement {
       </section>
 
       <section className="guide-section">
-        <div className="guide-section-title"><ShieldCheck aria-hidden="true" /><div><span>Step 3</span><h2>Connect the agent MCP client</h2></div></div>
-        <p>Add one local stdio server to the agent’s MCP configuration. Replace the paths and secret locally. The exact settings screen differs by client; the transport and command remain the same.</p>
-        <pre><code>{clientConfig}</code></pre>
-        <p>Restart the MCP client. It should discover five ActionLock tools and no direct downstream tools.</p>
+        <div className="guide-section-title"><ShieldCheck aria-hidden="true" /><div><span>Step 3</span><h2>Create a local root secret</h2></div></div>
+        <p>Generate the secret on the builder’s machine. Keep it out of Git, screenshots, chat, and the hosted console.</p>
+        <div className="command-list"><code>node -e &quot;console.log(require('node:crypto').randomBytes(48).toString('base64url'))&quot;</code></div>
+        <div className="guide-warning"><strong>This secret controls local approvals.</strong><span>Use a different value for every installation. Losing it invalidates pending approvals; exposing it weakens the local boundary.</span></div>
       </section>
 
       <section className="guide-section">
-        <div className="guide-section-title"><CheckCircle2 aria-hidden="true" /><div><span>Step 4</span><h2>Verify before execution</h2></div></div>
+        <div className="guide-section-title"><ShieldCheck aria-hidden="true" /><div><span>Step 4</span><h2>Connect the agent MCP client</h2></div></div>
+        <p>Add one local stdio server to the agent’s MCP configuration. Replace the paths and secret locally. The exact settings screen differs by client; the transport and command remain the same.</p>
+        <pre><code>{clientConfig}</code></pre>
+        <p>Restart the MCP client. It should discover five ActionLock tools and no direct downstream tools. If the client cannot find <code>npm</code>, replace the command with its absolute local path.</p>
+      </section>
+
+      <section className="guide-section">
+        <div className="guide-section-title"><CheckCircle2 aria-hidden="true" /><div><span>Step 5</span><h2>Verify before execution</h2></div></div>
         <ol className="verification-list">
           <li><strong>Read evidence</strong><span>Call <code>actionlock_read_room</code>. Keep the returned short-lived evidence token.</span></li>
           <li><strong>Inspect policy</strong><span>Call <code>actionlock_list_policies</code>. An empty list means execution is disabled.</span></li>
