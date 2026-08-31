@@ -5,6 +5,8 @@ import type { RoomRead, TechnocoreMessage } from "./types";
 
 const JSONbig = JSONbigFactory({ storeAsString: true, strict: true });
 const MAX_RESPONSE_BYTES = 512 * 1024;
+const MAX_EXPORT_BYTES = 12 * 1024 * 1024;
+const MAX_EXPORT_LINE_BYTES = 16 * 1024;
 const numericString = z.union([z.string(), z.number()]).transform(String).pipe(z.string().regex(/^\d{1,24}$/));
 
 const messageSchema = z.object({
@@ -27,6 +29,13 @@ const roomReadSchema = z.object({
 
 export function parseRoomRead(raw: string): RoomRead {
   return roomReadSchema.parse(JSONbig.parse(raw)) as RoomRead;
+}
+
+export interface SequenceLookup {
+  message: TechnocoreMessage | null;
+  firstSeq: string | null;
+  lastSeq: string | null;
+  scannedBytes: number;
 }
 
 export class TechnocoreClient {
@@ -52,6 +61,64 @@ export class TechnocoreClient {
     return parseRoomRead(await this.safeFetch(url));
   }
 
+  async findMessageBySequence(room: string, sequence: string): Promise<SequenceLookup> {
+    if (!isValidRoom(room)) throw new Error("Invalid room name");
+    if (!/^\d{1,24}$/.test(sequence)) throw new Error("Invalid message sequence");
+
+    const url = new URL(`/r/${room}/export`, this.origin);
+    const response = await this.request(url, "application/x-ndjson, application/json");
+    const reader = response.body?.getReader();
+    if (!reader) return { message: null, firstSeq: null, lastSeq: null, scannedBytes: 0 };
+
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let scannedBytes = 0;
+    let firstSeq: string | null = null;
+    let lastSeq: string | null = null;
+
+    const inspectLine = (line: string): TechnocoreMessage | null => {
+      if (!line.trim()) return null;
+      if (new TextEncoder().encode(line).byteLength > MAX_EXPORT_LINE_BYTES) {
+        throw new Error("Technocore export contained an oversized record");
+      }
+      const message = messageSchema.parse(JSONbig.parse(line)) as TechnocoreMessage;
+      firstSeq ??= message.seq;
+      lastSeq = message.seq;
+      return message.seq === sequence ? message : null;
+    };
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        scannedBytes += value.byteLength;
+        if (scannedBytes > MAX_EXPORT_BYTES) {
+          throw new Error("Technocore export exceeded the 12 MiB safety limit");
+        }
+        buffer += decoder.decode(value, { stream: true });
+        let newline = buffer.indexOf("\n");
+        while (newline !== -1) {
+          const match = inspectLine(buffer.slice(0, newline).replace(/\r$/, ""));
+          buffer = buffer.slice(newline + 1);
+          if (match) {
+            await reader.cancel();
+            return { message: match, firstSeq, lastSeq, scannedBytes };
+          }
+          newline = buffer.indexOf("\n");
+        }
+        if (new TextEncoder().encode(buffer).byteLength > MAX_EXPORT_LINE_BYTES) {
+          throw new Error("Technocore export contained an oversized record");
+        }
+      }
+      buffer += decoder.decode();
+      const match = inspectLine(buffer.replace(/\r$/, ""));
+      return { message: match, firstSeq, lastSeq, scannedBytes };
+    } catch (error) {
+      await reader.cancel().catch(() => undefined);
+      throw error;
+    }
+  }
+
   async capabilities(): Promise<{
     origin: string;
     exportEndpointAdvertised: boolean;
@@ -70,26 +137,7 @@ export class TechnocoreClient {
   }
 
   private async safeFetch(url: URL): Promise<string> {
-    if (url.origin !== this.origin) throw new Error("Cross-origin fetch denied");
-    let response: Response | null = null;
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      response = await fetch(url, {
-        method: "GET",
-        redirect: "manual",
-        headers: { accept: "application/json" },
-        signal: AbortSignal.timeout(10_000),
-      });
-      if (![502, 503, 504].includes(response.status) || attempt === 2) break;
-      await new Promise((resolveDelay) => setTimeout(resolveDelay, 250 * (attempt + 1)));
-    }
-    if (!response) throw new Error("Technocore request did not start");
-    if (response.status >= 300 && response.status < 400) {
-      throw new Error(`Redirect denied (${response.status})`);
-    }
-    if (!response.ok) {
-      const detail = (await response.text()).slice(0, 240).replace(/\s+/g, " ");
-      throw new Error(`Technocore responded ${response.status}: ${detail}`);
-    }
+    const response = await this.request(url, "application/json");
     const reader = response.body?.getReader();
     if (!reader) return "";
     const decoder = new TextDecoder();
@@ -107,6 +155,30 @@ export class TechnocoreClient {
     }
     body += decoder.decode();
     return body;
+  }
+
+  private async request(url: URL, accept: string): Promise<Response> {
+    if (url.origin !== this.origin) throw new Error("Cross-origin fetch denied");
+    let response: Response | null = null;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      response = await fetch(url, {
+        method: "GET",
+        redirect: "manual",
+        headers: { accept },
+        signal: AbortSignal.timeout(15_000),
+      });
+      if (![502, 503, 504].includes(response.status) || attempt === 2) break;
+      await new Promise((resolveDelay) => setTimeout(resolveDelay, 250 * (attempt + 1)));
+    }
+    if (!response) throw new Error("Technocore request did not start");
+    if (response.status >= 300 && response.status < 400) {
+      throw new Error(`Redirect denied (${response.status})`);
+    }
+    if (!response.ok) {
+      const detail = (await response.text()).slice(0, 240).replace(/\s+/g, " ");
+      throw new Error(`Technocore responded ${response.status}: ${detail}`);
+    }
+    return response;
   }
 }
 

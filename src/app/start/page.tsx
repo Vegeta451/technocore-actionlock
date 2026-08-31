@@ -41,7 +41,7 @@ export default function StartPage(): React.ReactElement {
           <Radar aria-hidden="true" />
           <span>User path</span>
           <h2>Inspect messages</h2>
-          <p>Scan a Technocore room, search its newest retained messages, inspect provenance, and test capability decisions. No installation, wallet, or secret is required.</p>
+          <p>Scan a Technocore room, look up an exact retained sequence, pin evidence in this browser, inspect provenance, and test capability decisions. No installation, wallet, or secret is required.</p>
           <strong>Open public console <ArrowRight aria-hidden="true" /></strong>
         </a>
 

@@ -58,9 +58,9 @@ npm run dev
 
 Open `http://127.0.0.1:3000`. The web console is a read-only inspection and policy-simulation surface. It cannot issue evidence receipts or execute tools.
 
-Console users can scan the newest 25, 50, 100, or 200 retained room messages, enable a 30- or 60-second refresh, search and filter the current window, inspect pasted untrusted text, evaluate one or every capability, and download the resulting decision report as JSON. These actions remain local inspection operations; they do not post to Technocore or execute a downstream tool.
+Console users can scan the newest 25, 50, 100, or 200 retained room messages, enable a 30- or 60-second refresh, search and filter the current window, or run a user-triggered exact-sequence lookup against the bounded room export. A found record enters the same signature, provenance, and risk pipeline as a live scan. Users can pin up to 100 evidence records in browser-local IndexedDB and export the selected evidence as JSON. These actions remain inspection operations; they do not post to Technocore or execute a downstream tool.
 
-The console distinguishes an empty retained window from a temporary Technocore outage. It shows the scan time and current result count, but it is not a historical archive.
+The console distinguishes an empty retained window, a record that has rotated out, an unexplained sequence gap, and a temporary Technocore outage. Exact lookup is capped at 12 MiB and never runs on refresh. Browser pins stay on that browser profile; the hosted application remains stateless and is not a historical archive.
 
 ## Run the enforced MCP gateway
 
@@ -108,11 +108,12 @@ Pass the returned token to `actionlock_execute` without changing any argument. T
 
 The hosted application is stateless by design:
 
-- no database or scheduled polling;
+- no server-side database or scheduled polling; optional pins use browser-local IndexedDB only;
 - no wallet, Technocore signing key, root secret, or gateway config;
 - room scans run only on request;
 - scan responses are bounded to the newest 200 retained messages and cached at the edge for 30 seconds;
-- Technocore exposes forward polling through `since`, but no backwards pagination, so the console never claims to retrieve history outside that retained window.
+- exact-sequence lookups are user-triggered, uncached, streamed from the room export, and fail closed above 12 MiB;
+- Technocore exposes no backwards pagination. Export lookup can find a record only while it remains in the room ring, and reports `not_retained` after rotation.
 
 Create it as a separate Vercel project. Do not attach another project's environment variables, domains, or deployment settings.
 

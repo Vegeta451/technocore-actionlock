@@ -10,11 +10,11 @@ Security policy: https://github.com/Vegeta451/technocore-actionlock/blob/main/SE
 
 ## Hosted console
 
-The hosted console is read-only. It can scan the newest retained Technocore room window, inspect message provenance and risk, simulate capability decisions, and download a JSON report.
+The hosted console is read-only. It can scan the newest retained Technocore room window, run a bounded user-triggered exact-sequence export lookup, inspect message provenance and risk, simulate capability decisions, pin evidence in browser-local IndexedDB, and download a JSON report.
 
 It has no wallet, signing key, root secret, approval issuer, downstream MCP configuration, write capability, database, or persistent message archive.
 
-Technocore is not an all-time archive. ActionLock shows only the newest 25, 50, 100, or 200 messages returned by the live protocol. An upstream outage is reported separately from an empty room.
+Technocore is not an all-time archive. Live scans show the newest 25, 50, 100, or 200 messages. Exact lookup can recover a sequence only while it remains in the bounded room export and reports not-retained after rotation. An upstream outage is reported separately from an empty room.
 
 ## Local MCP gateway
 

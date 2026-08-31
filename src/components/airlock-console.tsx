@@ -3,6 +3,8 @@
 import {
   Activity,
   AlertTriangle,
+  Bookmark,
+  BookmarkCheck,
   ArrowRight,
   CheckCircle2,
   CircleSlash2,
@@ -15,11 +17,14 @@ import {
   Radar,
   RefreshCw,
   Search,
+  SearchCheck,
   ShieldCheck,
   Sparkles,
   TerminalSquare,
+  Trash2,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { listPins, pinEvidence, removePin, type PinnedEvidence } from "@/client/pins";
 
 type Verification = "verified" | "invalid" | "server_signed_lane" | "unsigned" | "not_available";
 type Capability =
@@ -34,12 +39,21 @@ type Capability =
 
 interface ScanEvent {
   message: { seq: string; ts: string; from: string; text: string; nonce?: string };
-  provenance: { contentHash: string; verification: Verification };
+  provenance: { contentHash: string; verification: Verification; room?: string };
   risk: {
     action: "allow" | "quarantine" | "block";
     score: number;
     findings: Array<{ code: string; title: string; severity: string; evidence: string }>;
   };
+}
+
+interface LookupResult {
+  room: string;
+  sequence: string;
+  status: "found" | "not_retained" | "not_found";
+  retainedRange: { first: string; last: string } | null;
+  scannedBytes: number;
+  event: ScanEvent | null;
 }
 
 interface ScanResult {
@@ -123,7 +137,11 @@ export function ActionLockConsole(): React.ReactElement {
   const [query, setQuery] = useState("");
   const [riskFilter, setRiskFilter] = useState<"all" | ScanEvent["risk"]["action"]>("all");
   const [manualText, setManualText] = useState("");
+  const [sequence, setSequence] = useState("");
   const [result, setResult] = useState<ScanResult | null>(null);
+  const [exactEvent, setExactEvent] = useState<ScanEvent | null>(null);
+  const [lookupStatus, setLookupStatus] = useState<LookupResult | null>(null);
+  const [pins, setPins] = useState<PinnedEvidence[]>([]);
   const [selected, setSelected] = useState<ScanEvent>(sample);
   const [capability, setCapability] = useState<Capability>("shell");
   const [evaluation, setEvaluation] = useState<EvaluationResult | null>(null);
@@ -131,6 +149,8 @@ export function ActionLockConsole(): React.ReactElement {
   const [loading, setLoading] = useState(true);
   const [evaluating, setEvaluating] = useState(false);
   const [evaluatingAll, setEvaluatingAll] = useState(false);
+  const [lookingUp, setLookingUp] = useState(false);
+  const [pinning, setPinning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const upstreamUnavailable = Boolean(error?.includes("temporarily unavailable"));
 
@@ -146,15 +166,21 @@ export function ActionLockConsole(): React.ReactElement {
     };
   }, [result]);
 
+  const displayEvents = useMemo(() => {
+    const events = result?.events ?? [];
+    if (!exactEvent) return events;
+    return [exactEvent, ...events.filter((event) => event.provenance.contentHash !== exactEvent.provenance.contentHash)];
+  }, [exactEvent, result]);
+
   const filteredEvents = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    return (result?.events ?? []).filter((event) => {
+    return displayEvents.filter((event) => {
       const matchesRisk = riskFilter === "all" || event.risk.action === riskFilter;
       const matchesQuery = !normalized || [event.message.seq, event.message.from, event.message.text]
         .some((value) => value.toLowerCase().includes(normalized));
       return matchesRisk && matchesQuery;
     });
-  }, [query, result, riskFilter]);
+  }, [displayEvents, query, riskFilter]);
 
   async function scan(): Promise<void> {
     setLoading(true);
@@ -180,7 +206,7 @@ export function ActionLockConsole(): React.ReactElement {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          room: result?.room ?? "attack-lab",
+          room: event.provenance.room ?? result?.room ?? "attack-lab",
           seq: event.message.seq,
           sender: event.message.from,
           text: event.message.text,
@@ -227,6 +253,31 @@ export function ActionLockConsole(): React.ReactElement {
     }
   }
 
+  async function lookupSequence(): Promise<void> {
+    if (!/^\d{1,24}$/.test(sequence)) {
+      setError("Enter a sequence containing 1 to 24 digits");
+      return;
+    }
+    setLookingUp(true);
+    setError(null);
+    setLookupStatus(null);
+    try {
+      const response = await fetch(`/api/lookup?room=${encodeURIComponent(room)}&seq=${sequence}`);
+      const payload = (await response.json()) as LookupResult & { error?: string };
+      if (!response.ok) throw new Error(payload.error ?? "Sequence lookup failed");
+      setLookupStatus(payload);
+      setExactEvent(payload.event);
+      if (payload.event) setSelected(payload.event);
+    } catch (lookupError) {
+      const message = lookupError instanceof Error ? lookupError.message : "Sequence lookup failed";
+      setError(message.includes("503")
+        ? "Technocore is temporarily unavailable. The exact lookup was not completed."
+        : message);
+    } finally {
+      setLookingUp(false);
+    }
+  }
+
   function inspectManualText(): void {
     const text = manualText.trim();
     if (!text) {
@@ -244,7 +295,7 @@ export function ActionLockConsole(): React.ReactElement {
   function downloadReport(): void {
     const report = {
       generatedAt: new Date().toISOString(),
-      room: result?.room ?? null,
+      room: selected.provenance.room ?? result?.room ?? null,
       selected,
       selectedCapability: capability,
       evaluation,
@@ -258,8 +309,26 @@ export function ActionLockConsole(): React.ReactElement {
     URL.revokeObjectURL(url);
   }
 
+  async function pinSelected(): Promise<void> {
+    const selectedRoom = selected.provenance.room;
+    if (!selectedRoom) {
+      setError("Only Technocore evidence with a room can be pinned");
+      return;
+    }
+    setPinning(true);
+    setError(null);
+    try {
+      setPins(await pinEvidence(selectedRoom, selected as import("@/server/types").ScanEvent));
+    } catch (pinError) {
+      setError(pinError instanceof Error ? pinError.message : "Evidence could not be pinned locally");
+    } finally {
+      setPinning(false);
+    }
+  }
+
   useEffect(() => {
     void scan();
+    void listPins().then(setPins).catch(() => setError("Local evidence storage is unavailable in this browser"));
   }, []);
 
   useEffect(() => {
@@ -340,7 +409,20 @@ export function ActionLockConsole(): React.ReactElement {
             <select aria-label="Filter by risk" value={riskFilter} onChange={(event) => setRiskFilter(event.target.value as typeof riskFilter)}>
               <option value="all">All risk</option><option value="allow">Allowed</option><option value="quarantine">Held</option><option value="block">Blocked</option>
             </select>
-            <span>{filteredEvents.length}/{result?.events.length ?? 0}</span>
+            <span>{filteredEvents.length}/{displayEvents.length}</span>
+          </div>
+          <div className="sequence-lookup">
+            <div><SearchCheck aria-hidden="true" /><label htmlFor="sequence">Exact sequence</label></div>
+            <input id="sequence" inputMode="numeric" pattern="[0-9]*" maxLength={24} value={sequence} onChange={(event) => setSequence(event.target.value.replace(/\D/g, ""))} placeholder="14992315" />
+            <button type="button" onClick={() => void lookupSequence()} disabled={lookingUp || !sequence}>
+              {lookingUp ? <LoaderCircle className="spin" aria-hidden="true" /> : <Search aria-hidden="true" />}<span>Find</span>
+            </button>
+            <span className={`lookup-state lookup-${lookupStatus?.status ?? "idle"}`} aria-live="polite">
+              {lookupStatus?.status === "found" ? `Found in export (${Math.ceil(lookupStatus.scannedBytes / 1024)} KiB read)` : null}
+              {lookupStatus?.status === "not_retained" ? `Not retained; export starts at ${lookupStatus.retainedRange?.first ?? "unknown"}` : null}
+              {lookupStatus?.status === "not_found" ? "No matching record in the retained export" : null}
+              {!lookupStatus ? "User-triggered export lookup; never runs on refresh" : null}
+            </span>
           </div>
           <div className="event-table" role="table" aria-label="Technocore messages">
             <div className="event-row event-head" role="row">
@@ -375,7 +457,20 @@ export function ActionLockConsole(): React.ReactElement {
             ))}
             {!loading && !filteredEvents.length && !error ? <div className="empty">{result?.events.length ? "No messages match this filter" : "This room returned no retained messages"}</div> : null}
           </div>
-          <div className="retention-note"><Clock3 aria-hidden="true" /><span>Technocore exposes the newest retained window only. Increase depth up to 200; older pages are not available through the protocol.</span></div>
+          <div className="retention-note"><Clock3 aria-hidden="true" /><span>Live scans show the newest 200 messages. Exact lookup searches the room export while the record remains retained; it cannot recover data already rotated out.</span></div>
+          <details className="pinned-evidence">
+            <summary><Bookmark aria-hidden="true" /><span>Local evidence</span><strong>{pins.length}</strong></summary>
+            <p>Saved only in this browser. The hosted service receives no persistent copy.</p>
+            {pins.map((pin) => (
+              <div className="pin-row" key={pin.id}>
+                <button type="button" onClick={() => { setSelected(pin.event as ScanEvent); setRoom(pin.room); }}>
+                  <code>{pin.room} / {pin.event.message.seq}</code><span>{pin.event.message.text}</span>
+                </button>
+                <button type="button" title="Remove local pin" aria-label={`Remove ${pin.room} sequence ${pin.event.message.seq}`} onClick={() => void removePin(pin.id).then(setPins).catch(() => setError("Local pin could not be removed"))}><Trash2 aria-hidden="true" /></button>
+              </div>
+            ))}
+            {!pins.length ? <div className="empty-pins">No locally pinned evidence</div> : null}
+          </details>
         </section>
 
         <aside className="policy-panel">
@@ -387,6 +482,13 @@ export function ActionLockConsole(): React.ReactElement {
           <div className="source-block">
             <div className="source-meta"><span>UNTRUSTED_REMOTE</span><code>{short(selected.provenance.contentHash)}</code></div>
             <p>{selected.message.text}</p>
+          </div>
+
+          <div className="evidence-actions">
+            <button type="button" onClick={() => void pinSelected()} disabled={pinning || !selected.provenance.room || selected.provenance.verification === "not_available"}>
+              {pinning ? <LoaderCircle className="spin" aria-hidden="true" /> : <BookmarkCheck aria-hidden="true" />}Pin locally
+            </button>
+            <button type="button" onClick={downloadReport}><Download aria-hidden="true" />Export JSON</button>
           </div>
 
           <details className="manual-review">
@@ -449,7 +551,6 @@ export function ActionLockConsole(): React.ReactElement {
             </div>
           ) : null}
 
-          {evaluation ? <button className="download-button" type="button" onClick={downloadReport} title="Download JSON decision report"><Download aria-hidden="true" />Download report</button> : null}
         </aside>
       </div>
 
