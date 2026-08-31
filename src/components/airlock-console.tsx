@@ -8,6 +8,7 @@ import {
   CircleSlash2,
   Clock3,
   Code2,
+  Download,
   ExternalLink,
   FileWarning,
   Fingerprint,
@@ -15,6 +16,7 @@ import {
   LockKeyhole,
   Radar,
   RefreshCw,
+  Search,
   ShieldCheck,
   Sparkles,
   TerminalSquare,
@@ -119,6 +121,10 @@ function decisionIcon(decision?: string): React.ReactNode {
 export function ActionLockConsole(): React.ReactElement {
   const [room, setRoom] = useState("lobby");
   const [limit, setLimit] = useState(25);
+  const [autoRefresh, setAutoRefresh] = useState(0);
+  const [query, setQuery] = useState("");
+  const [riskFilter, setRiskFilter] = useState<"all" | ScanEvent["risk"]["action"]>("all");
+  const [manualText, setManualText] = useState("");
   const [result, setResult] = useState<ScanResult | null>(null);
   const [selected, setSelected] = useState<ScanEvent>(sample);
   const [capability, setCapability] = useState<Capability>("shell");
@@ -140,6 +146,16 @@ export function ActionLockConsole(): React.ReactElement {
       ).length,
     };
   }, [result]);
+
+  const filteredEvents = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    return (result?.events ?? []).filter((event) => {
+      const matchesRisk = riskFilter === "all" || event.risk.action === riskFilter;
+      const matchesQuery = !normalized || [event.message.seq, event.message.from, event.message.text]
+        .some((value) => value.toLowerCase().includes(normalized));
+      return matchesRisk && matchesQuery;
+    });
+  }, [query, result, riskFilter]);
 
   async function scan(): Promise<void> {
     setLoading(true);
@@ -209,9 +225,46 @@ export function ActionLockConsole(): React.ReactElement {
     }
   }
 
+  function inspectManualText(): void {
+    const text = manualText.trim();
+    if (!text) {
+      setError("Paste a message before inspecting it");
+      return;
+    }
+    setError(null);
+    setSelected({
+      message: { seq: String(Date.now()), ts: new Date().toISOString(), from: "manual-input", text },
+      provenance: { contentHash: "manual-input-not-yet-evaluated", verification: "not_available" },
+      risk: { action: "allow", score: 0, findings: [] },
+    });
+  }
+
+  function downloadReport(): void {
+    const report = {
+      generatedAt: new Date().toISOString(),
+      room: result?.room ?? null,
+      selected,
+      selectedCapability: capability,
+      evaluation,
+      capabilityMatrix: matrix,
+    };
+    const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: "application/json" }));
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `actionlock-${selected.message.seq}.json`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
   useEffect(() => {
     void scan();
   }, []);
+
+  useEffect(() => {
+    if (!autoRefresh) return;
+    const timer = window.setInterval(() => void scan(), autoRefresh * 1_000);
+    return () => window.clearInterval(timer);
+  }, [autoRefresh, limit, room]);
 
   useEffect(() => {
     setEvaluation(null);
@@ -235,6 +288,7 @@ export function ActionLockConsole(): React.ReactElement {
         <div className="topbar-status">
           <span className="status-dot" aria-hidden="true" />
           Public inspection mode
+          <a className="guide-link" href="/guide">Integration guide</a>
           <a href="https://github.com/flop-labs/technocore-chat" target="_blank" rel="noreferrer" aria-label="Technocore protocol source">
             <ExternalLink aria-hidden="true" />
           </a>
@@ -252,6 +306,10 @@ export function ActionLockConsole(): React.ReactElement {
           <label htmlFor="limit">Depth</label>
           <select id="limit" value={limit} onChange={(event) => setLimit(Number(event.target.value))}>
             {[25, 50, 100, 200].map((value) => <option value={value} key={value}>{value}</option>)}
+          </select>
+          <label htmlFor="refresh">Refresh</label>
+          <select id="refresh" value={autoRefresh} onChange={(event) => setAutoRefresh(Number(event.target.value))}>
+            <option value={0}>Off</option><option value={30}>30s</option><option value={60}>60s</option>
           </select>
           <button type="button" onClick={() => void scan()} disabled={loading} title="Scan room">
             {loading ? <LoaderCircle className="spin" aria-hidden="true" /> : <RefreshCw aria-hidden="true" />}
@@ -281,11 +339,18 @@ export function ActionLockConsole(): React.ReactElement {
             <div><span>Evidence stream</span><strong>Message provenance</strong></div>
             <time>{result ? new Date(result.scannedAt).toLocaleTimeString() : "Waiting"}</time>
           </div>
+          <div className="event-tools">
+            <label><Search aria-hidden="true" /><span className="sr-only">Search messages</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search sender, text, or sequence" /></label>
+            <select aria-label="Filter by risk" value={riskFilter} onChange={(event) => setRiskFilter(event.target.value as typeof riskFilter)}>
+              <option value="all">All risk</option><option value="allow">Allowed</option><option value="quarantine">Held</option><option value="block">Blocked</option>
+            </select>
+            <span>{filteredEvents.length}/{result?.events.length ?? 0}</span>
+          </div>
           <div className="event-table" role="table" aria-label="Technocore messages">
             <div className="event-row event-head" role="row">
               <span>Seq</span><span>Sender / message</span><span>Trust</span><span>Risk</span>
             </div>
-            {(result?.events ?? []).map((event) => (
+            {filteredEvents.map((event) => (
               <button
                 className={`event-row ${selected.provenance.contentHash === event.provenance.contentHash ? "selected" : ""}`}
                 type="button"
@@ -300,7 +365,7 @@ export function ActionLockConsole(): React.ReactElement {
                 <span className={`risk risk-${event.risk.action}`}>{event.risk.score}</span>
               </button>
             ))}
-            {!loading && !result?.events.length ? <div className="empty">No messages returned</div> : null}
+            {!loading && !filteredEvents.length ? <div className="empty">{result?.events.length ? "No messages match this filter" : "No messages returned"}</div> : null}
           </div>
           <div className="retention-note"><Clock3 aria-hidden="true" /><span>Technocore exposes the newest retained window only. Increase depth up to 200; older pages are not available through the protocol.</span></div>
         </section>
@@ -315,6 +380,12 @@ export function ActionLockConsole(): React.ReactElement {
             <div className="source-meta"><span>UNTRUSTED_REMOTE</span><code>{short(selected.provenance.contentHash)}</code></div>
             <p>{selected.message.text}</p>
           </div>
+
+          <details className="manual-review">
+            <summary>Inspect pasted message</summary>
+            <textarea value={manualText} onChange={(event) => setManualText(event.target.value)} maxLength={8000} placeholder="Paste untrusted message text" />
+            <button type="button" onClick={inspectManualText}>Use as evidence</button>
+          </details>
 
           <label className="field-label" htmlFor="capability">Requested capability</label>
           <select id="capability" value={capability} onChange={(event) => setCapability(event.target.value as Capability)}>
@@ -366,6 +437,8 @@ export function ActionLockConsole(): React.ReactElement {
               })}
             </div>
           ) : null}
+
+          {evaluation ? <button className="download-button" type="button" onClick={downloadReport} title="Download JSON decision report"><Download aria-hidden="true" />Download report</button> : null}
         </aside>
       </div>
 
@@ -377,7 +450,7 @@ export function ActionLockConsole(): React.ReactElement {
           <code>npm run mcp</code>
         </div>
         <p>The hosted console only inspects. Enforced execution runs locally with a private root secret and trusted MCP policy file.</p>
-        <a href="https://github.com/Vegeta451/technocore-actionlock#run-the-enforced-mcp-gateway" target="_blank" rel="noreferrer">Open integration guide <ExternalLink aria-hidden="true" /></a>
+        <a href="/guide">Open integration guide <ArrowRight aria-hidden="true" /></a>
       </section>
 
       <footer>
