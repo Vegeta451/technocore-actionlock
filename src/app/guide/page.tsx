@@ -73,8 +73,8 @@ export default function GuidePage(): React.ReactElement {
 
       <section className="guide-section">
         <div className="guide-section-title"><TerminalSquare aria-hidden="true" /><div><span>Step 1</span><h2>Install and verify</h2></div></div>
-        <div className="command-list"><code>git clone https://github.com/Vegeta451/technocore-actionlock.git</code><code>cd technocore-actionlock</code><code>npm install</code><code>npm run check</code></div>
-        <p>Use Node.js 20 or newer. Do not continue if the test suite fails.</p>
+        <div className="command-list"><code>git clone https://github.com/Vegeta451/technocore-actionlock.git</code><code>cd technocore-actionlock</code><code>npm install</code><code>npm run check</code><code>npm run check:mcp</code></div>
+        <p>Use Node.js 20 or newer. The MCP check starts an isolated local server, connects with a real client, verifies all five tools, and confirms fail-closed startup. Do not continue if either check fails.</p>
       </section>
 
       <section className="guide-section">

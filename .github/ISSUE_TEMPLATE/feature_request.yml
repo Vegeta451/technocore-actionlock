@@ -1,0 +1,26 @@
+name: Feature request
+description: Propose a focused ActionLock improvement
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What concrete user or builder problem is unsolved?
+    validations:
+      required: true
+  - type: textarea
+    id: boundary
+    attributes:
+      label: Trust-boundary impact
+      description: Which evidence, policy, approval, execution, or audit boundary would change?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Describe the smallest useful change and how it can be verified.
+    validations:
+      required: true

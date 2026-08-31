@@ -16,6 +16,7 @@ Before finishing a change, run:
 
 ```bash
 npm run check
+npm run check:mcp
 npm run build
 ```
 

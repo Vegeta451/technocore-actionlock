@@ -52,6 +52,7 @@ Requirements: Node.js 20 or newer.
 ```bash
 npm install
 npm run check
+npm run check:mcp
 npm run dev
 ```
 
@@ -85,6 +86,14 @@ The MCP server exposes:
 
 A missing config produces an empty policy list and disables all downstream execution.
 
+Verify the real stdio handshake before connecting an agent:
+
+```bash
+npm run check:mcp
+```
+
+The smoke test starts ActionLock with an isolated temporary state directory, connects with the official MCP client SDK, verifies the five advertised tools, confirms that the policy list is empty without trusted config, and closes without retaining local state.
+
 ## Approve one exact call
 
 Run `actionlock_preview` first and review the evidence, downstream server, tool, arguments, policy, and action hash. Issue an approval outside the agent process:
@@ -111,6 +120,7 @@ Create it as a separate Vercel project. Do not attach another project's environm
 
 ```bash
 npm run check
+npm run check:mcp
 npm run build
 ```
 

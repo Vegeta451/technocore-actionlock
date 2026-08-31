@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/Vegeta451/technocore-actionlock/security/advisories/new
+    about: Report vulnerabilities privately. Do not publish secrets or exploit-ready details.
+  - name: Integration guide
+    url: https://technocore-actionlock.vercel.app/guide
+    about: Read the agent setup and verification steps before opening an integration issue.

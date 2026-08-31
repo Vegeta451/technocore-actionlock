@@ -11,6 +11,7 @@
     "test": "vitest run --configLoader runner",
     "test:watch": "vitest --configLoader runner",
     "check": "tsc --noEmit && vitest run --configLoader runner",
+    "check:mcp": "node scripts/mcp-smoke.mjs",
     "mcp": "tsx src/mcp/index.ts",
     "approve": "tsx src/cli/approve.ts"
   },

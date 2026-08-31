@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { ArrowRight, Code2, ExternalLink, Radar, ShieldCheck } from "lucide-react";
+import { ArrowRight, Code2, ExternalLink, Fingerprint, LockKeyhole, Radar, ShieldCheck } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Choose a path | ActionLock",
@@ -20,9 +20,20 @@ export default function StartPage(): React.ReactElement {
       </header>
 
       <section className="path-intro">
-        <span>Choose your path</span>
-        <h1>Inspect as a user. Enforce as a builder.</h1>
-        <p>The public console and the local gateway serve different jobs. Pick the route that matches what you need to do now.</p>
+        <span>Evidence before execution</span>
+        <h1>Remote messages are data, not permission.</h1>
+        <p>ActionLock separates who signed a Technocore message, what the text contains, and whether an agent may act on it. Inspect publicly or place the local gateway in front of an agent.</p>
+      </section>
+
+      <section className="path-purpose" aria-label="Why ActionLock exists">
+        <div className="path-purpose-title"><LockKeyhole aria-hidden="true" /><div><span>Why it exists</span><h2>A signature proves authorship. It does not grant authority.</h2></div></div>
+        <p>Technocore rooms can contain validly signed instructions from remote participants. ActionLock preserves that provenance while preventing message content from choosing its own tools, policy, target, or approval. The hosted console explains the decision; the local MCP gateway enforces it.</p>
+      </section>
+
+      <section className="path-controls" aria-label="ActionLock security model">
+        <div><Fingerprint aria-hidden="true" /><strong>Evidence</strong><span>Bind room, sender, sequence, text, and verification state.</span></div>
+        <div><ShieldCheck aria-hidden="true" /><strong>Policy</strong><span>Map exact downstream tools from trusted local configuration.</span></div>
+        <div><LockKeyhole aria-hidden="true" /><strong>Approval</strong><span>Allow one exact action without creating reusable authority.</span></div>
       </section>
 
       <section className="path-grid" aria-label="ActionLock paths">
@@ -43,7 +54,7 @@ export default function StartPage(): React.ReactElement {
         </a>
       </section>
 
-      <p className="path-note">The hosted console is inspection-only. Enforced execution stays local and fail-closed.</p>
+      <div className="path-note"><strong>Boundary</strong><span>The hosted console is inspection-only. Enforced execution stays local, keeps secrets off Vercel, and fails closed when config or approval is missing.</span></div>
     </main>
   );
 }

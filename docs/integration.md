@@ -24,7 +24,10 @@ git clone https://github.com/Vegeta451/technocore-actionlock.git
 cd technocore-actionlock
 npm install
 npm run check
+npm run check:mcp
 ```
+
+`check:mcp` performs a real local stdio handshake using the official MCP client SDK. It must report five tools and a fail-closed empty policy list.
 
 ## 2. Define the downstream policy
 

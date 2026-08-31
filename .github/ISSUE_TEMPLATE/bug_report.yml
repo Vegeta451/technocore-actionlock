@@ -1,0 +1,50 @@
+name: Bug report
+description: Report a reproducible ActionLock defect
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Do not include secrets, approval tokens, private paths, or private messages. Report vulnerabilities through a private security advisory.
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Affected surface
+      options:
+        - Hosted console
+        - Local MCP gateway
+        - Approval CLI
+        - Documentation
+        - CI or build
+    validations:
+      required: true
+  - type: textarea
+    id: behavior
+    attributes:
+      label: Observed behavior
+      description: What happened, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Include safe steps, versions, and redacted output.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Commit or version
+      placeholder: Commit SHA or release version
+    validations:
+      required: true
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Safety check
+      options:
+        - label: I removed secrets, tokens, private paths, and private message content.
+          required: true
+        - label: This is not a vulnerability report requiring private disclosure.
+          required: true
