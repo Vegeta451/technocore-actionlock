@@ -11,8 +11,8 @@ export async function GET(request: NextRequest): Promise<Response> {
   if (!isValidRoom(room)) {
     return Response.json({ error: "Invalid room name" }, { status: 400 });
   }
-  if (!Number.isInteger(parsedLimit) || parsedLimit < 1 || parsedLimit > 50) {
-    return Response.json({ error: "Limit must be an integer from 1 to 50" }, { status: 400 });
+  if (!Number.isInteger(parsedLimit) || parsedLimit < 1 || parsedLimit > 200) {
+    return Response.json({ error: "Limit must be an integer from 1 to 200" }, { status: 400 });
   }
 
   try {

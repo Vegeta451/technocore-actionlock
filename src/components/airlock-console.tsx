@@ -6,6 +6,8 @@ import {
   ArrowRight,
   CheckCircle2,
   CircleSlash2,
+  Clock3,
+  Code2,
   ExternalLink,
   FileWarning,
   Fingerprint,
@@ -14,6 +16,7 @@ import {
   Radar,
   RefreshCw,
   ShieldCheck,
+  Sparkles,
   TerminalSquare,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -94,6 +97,14 @@ const capabilityLabels: Record<Capability, string> = {
   social: "Social post",
 };
 
+const capabilities = Object.keys(capabilityLabels) as Capability[];
+
+const decisionLabels: Record<EvaluationResult["decision"]["decision"], string> = {
+  allow: "Safe",
+  approval_required: "Approval required",
+  block: "Blocked",
+};
+
 function short(value: string, head = 12, tail = 8): string {
   if (value.length <= head + tail + 3) return value;
   return `${value.slice(0, head)}...${value.slice(-tail)}`;
@@ -107,12 +118,15 @@ function decisionIcon(decision?: string): React.ReactNode {
 
 export function ActionLockConsole(): React.ReactElement {
   const [room, setRoom] = useState("lobby");
+  const [limit, setLimit] = useState(25);
   const [result, setResult] = useState<ScanResult | null>(null);
   const [selected, setSelected] = useState<ScanEvent>(sample);
   const [capability, setCapability] = useState<Capability>("shell");
   const [evaluation, setEvaluation] = useState<EvaluationResult | null>(null);
+  const [matrix, setMatrix] = useState<Partial<Record<Capability, EvaluationResult>>>({});
   const [loading, setLoading] = useState(false);
   const [evaluating, setEvaluating] = useState(false);
+  const [evaluatingAll, setEvaluatingAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const metrics = useMemo(() => {
@@ -131,7 +145,7 @@ export function ActionLockConsole(): React.ReactElement {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/scan?room=${encodeURIComponent(room)}&limit=25`);
+      const response = await fetch(`/api/scan?room=${encodeURIComponent(room)}&limit=${limit}`);
       const payload = (await response.json()) as ScanResult & { error?: string };
       if (!response.ok) throw new Error(payload.error ?? "Room scan failed");
       setResult(payload);
@@ -143,34 +157,55 @@ export function ActionLockConsole(): React.ReactElement {
     }
   }
 
-  async function evaluate(): Promise<void> {
-    setEvaluating(true);
-    setError(null);
-    try {
+  async function requestEvaluation(event: ScanEvent, requestedCapability: Capability): Promise<EvaluationResult> {
       const response = await fetch("/api/evaluate", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           room: result?.room ?? "attack-lab",
-          seq: selected.message.seq,
-          sender: selected.message.from,
-          text: selected.message.text,
-          verification: selected.provenance.verification,
+          seq: event.message.seq,
+          sender: event.message.from,
+          text: event.message.text,
+          verification: event.provenance.verification,
           action: {
-            capability,
-            operation: capabilityLabels[capability],
-            target: capability === "shell" ? "local://shell" : `actionlock://${capability}`,
-            reversible: capability === "observe" || capability.endsWith("_read"),
+            capability: requestedCapability,
+            operation: capabilityLabels[requestedCapability],
+            target: requestedCapability === "shell" ? "local://shell" : `actionlock://${requestedCapability}`,
+            reversible: requestedCapability === "observe" || requestedCapability.endsWith("_read"),
           },
         }),
       });
       const payload = (await response.json()) as EvaluationResult & { error?: string };
       if (!response.ok) throw new Error(payload.error ?? "Evaluation failed");
+      return payload;
+  }
+
+  async function evaluate(): Promise<void> {
+    setEvaluating(true);
+    setError(null);
+    try {
+      const payload = await requestEvaluation(selected, capability);
       setEvaluation(payload);
     } catch (evaluateError) {
       setError(evaluateError instanceof Error ? evaluateError.message : "Evaluation failed");
     } finally {
       setEvaluating(false);
+    }
+  }
+
+  async function evaluateAll(): Promise<void> {
+    setEvaluatingAll(true);
+    setError(null);
+    try {
+      const results = await Promise.all(
+        capabilities.map(async (item) => [item, await requestEvaluation(selected, item)] as const),
+      );
+      setMatrix(Object.fromEntries(results) as Record<Capability, EvaluationResult>);
+      setEvaluation(Object.fromEntries(results)[capability] as EvaluationResult);
+    } catch (evaluateError) {
+      setError(evaluateError instanceof Error ? evaluateError.message : "Full evaluation failed");
+    } finally {
+      setEvaluatingAll(false);
     }
   }
 
@@ -180,7 +215,12 @@ export function ActionLockConsole(): React.ReactElement {
 
   useEffect(() => {
     setEvaluation(null);
-  }, [selected, capability]);
+  }, [capability]);
+
+  useEffect(() => {
+    setEvaluation(null);
+    setMatrix({});
+  }, [selected]);
 
   return (
     <main className="shell">
@@ -209,11 +249,21 @@ export function ActionLockConsole(): React.ReactElement {
         <div className="room-control">
           <label htmlFor="room">Room</label>
           <input id="room" value={room} onChange={(event) => setRoom(event.target.value.toLowerCase())} maxLength={48} />
+          <label htmlFor="limit">Depth</label>
+          <select id="limit" value={limit} onChange={(event) => setLimit(Number(event.target.value))}>
+            {[25, 50, 100, 200].map((value) => <option value={value} key={value}>{value}</option>)}
+          </select>
           <button type="button" onClick={() => void scan()} disabled={loading} title="Scan room">
             {loading ? <LoaderCircle className="spin" aria-hidden="true" /> : <RefreshCw aria-hidden="true" />}
             <span>Scan</span>
           </button>
         </div>
+      </section>
+
+      <section className="workflow-band" aria-label="How ActionLock works">
+        <div><span>1</span><p><strong>Scan a room</strong>Read a bounded, untrusted message window.</p></div>
+        <div><span>2</span><p><strong>Select evidence</strong>Inspect sender, verification, findings, and hash.</p></div>
+        <div><span>3</span><p><strong>Test permissions</strong>See what is safe, held for approval, or blocked.</p></div>
       </section>
 
       {error ? <div className="error-bar" role="alert"><AlertTriangle aria-hidden="true" />{error}</div> : null}
@@ -242,6 +292,7 @@ export function ActionLockConsole(): React.ReactElement {
                 role="row"
                 key={`${event.message.seq}-${event.provenance.contentHash}`}
                 onClick={() => setSelected(event)}
+                aria-pressed={selected.provenance.contentHash === event.provenance.contentHash}
               >
                 <span className="mono">{short(event.message.seq, 7, 4)}</span>
                 <span className="event-copy"><b>{short(event.message.from, 15, 7)}</b><small>{event.message.text}</small></span>
@@ -251,6 +302,7 @@ export function ActionLockConsole(): React.ReactElement {
             ))}
             {!loading && !result?.events.length ? <div className="empty">No messages returned</div> : null}
           </div>
+          <div className="retention-note"><Clock3 aria-hidden="true" /><span>Technocore exposes the newest retained window only. Increase depth up to 200; older pages are not available through the protocol.</span></div>
         </section>
 
         <aside className="policy-panel">
@@ -275,11 +327,16 @@ export function ActionLockConsole(): React.ReactElement {
             <ArrowRight aria-hidden="true" />
           </button>
 
+          <button className="evaluate-all-button" type="button" onClick={() => void evaluateAll()} disabled={evaluatingAll}>
+            {evaluatingAll ? <LoaderCircle className="spin" aria-hidden="true" /> : <Sparkles aria-hidden="true" />}
+            Evaluate all capabilities
+          </button>
+
           <div className={`decision decision-${evaluation?.decision.decision ?? "idle"}`} aria-live="polite">
             <div className="decision-icon">{decisionIcon(evaluation?.decision.decision)}</div>
             <div>
               <span>{evaluation?.decision.rule ?? "ACTIONLOCK READY"}</span>
-              <strong>{evaluation?.decision.decision.replaceAll("_", " ") ?? "No decision"}</strong>
+              <strong>{evaluation ? decisionLabels[evaluation.decision.decision] : "No decision"}</strong>
               <p>{evaluation?.decision.reason ?? "Select an action and evaluate the boundary."}</p>
             </div>
           </div>
@@ -292,8 +349,36 @@ export function ActionLockConsole(): React.ReactElement {
               <code>{evaluation.decision.actionHash}</code>
             </div>
           ) : null}
+
+          {Object.keys(matrix).length ? (
+            <div className="decision-matrix" aria-label="Capability decision matrix">
+              <span className="matrix-title">Complete capability map</span>
+              {capabilities.map((item) => {
+                const itemResult = matrix[item];
+                if (!itemResult) return null;
+                return (
+                  <button type="button" key={item} onClick={() => { setCapability(item); setEvaluation(itemResult); }}>
+                    <span>{capabilityLabels[item]}</span>
+                    <strong className={`matrix-${itemResult.decision.decision}`}>{decisionLabels[itemResult.decision.decision]}</strong>
+                    <code>{itemResult.decision.rule}</code>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
         </aside>
       </div>
+
+      <section className="integration-band" aria-label="Developer integration">
+        <div className="integration-heading"><Code2 aria-hidden="true" /><div><span>Developer path</span><strong>Put ActionLock in front of an agent</strong></div></div>
+        <div className="integration-steps">
+          <code>npm install</code>
+          <code>npm run check</code>
+          <code>npm run mcp</code>
+        </div>
+        <p>The hosted console only inspects. Enforced execution runs locally with a private root secret and trusted MCP policy file.</p>
+        <a href="https://github.com/Vegeta451/technocore-actionlock#run-the-enforced-mcp-gateway" target="_blank" rel="noreferrer">Open integration guide <ExternalLink aria-hidden="true" /></a>
+      </section>
 
       <footer>
         <span>Public console: no keys, writes, or persistent message storage.</span>

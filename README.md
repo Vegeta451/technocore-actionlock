@@ -96,7 +96,8 @@ The hosted application is stateless by design:
 - no database or scheduled polling;
 - no wallet, Technocore signing key, root secret, or gateway config;
 - room scans run only on request;
-- scan responses are bounded to 50 messages and cached at the edge for 30 seconds.
+- scan responses are bounded to the newest 200 retained messages and cached at the edge for 30 seconds;
+- Technocore exposes forward polling through `since`, but no backwards pagination, so the console never claims to retrieve history outside that retained window.
 
 Create it as a separate Vercel project. Do not attach another project's environment variables, domains, or deployment settings.
 
