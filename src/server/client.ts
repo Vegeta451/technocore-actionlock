@@ -21,6 +21,7 @@ const roomReadSchema = z.object({
   count: z.number().int().min(0).max(200),
   first_seq: numericString,
   last_seq: numericString,
+  generation: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).optional(),
   messages: z.array(messageSchema).max(200),
 }).strict();
 

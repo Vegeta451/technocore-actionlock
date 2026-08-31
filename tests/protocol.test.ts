@@ -82,6 +82,16 @@ describe("Technocore protocol handling", () => {
     expect(parsed.messages[0].nonce).toBe("9007199254740993123");
   });
 
+  it("accepts the bounded room generation returned by the live protocol", () => {
+    const parsed = parseRoomRead(
+      '{"room":"lobby","count":0,"first_seq":0,"last_seq":0,"generation":0,"messages":[]}',
+    );
+    expect(parsed.generation).toBe(0);
+    expect(() => parseRoomRead(
+      '{"room":"lobby","count":0,"first_seq":0,"last_seq":0,"generation":-1,"messages":[]}',
+    )).toThrow();
+  });
+
   it("pins production reads to the official origin", () => {
     expect(() => new TechnocoreClient("https://example.com")).toThrow(/official service/);
     expect(() => new TechnocoreClient("https://technocore.chat.evil.example")).toThrow(/official service/);

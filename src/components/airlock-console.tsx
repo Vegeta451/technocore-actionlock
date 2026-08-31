@@ -133,6 +133,7 @@ export function ActionLockConsole(): React.ReactElement {
   const [evaluating, setEvaluating] = useState(false);
   const [evaluatingAll, setEvaluatingAll] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const upstreamUnavailable = Boolean(error?.includes("temporarily unavailable"));
 
   const metrics = useMemo(() => {
     const events = result?.events ?? [];
@@ -323,7 +324,7 @@ export function ActionLockConsole(): React.ReactElement {
         <div><span>3</span><p><strong>Test permissions</strong>See what is safe, held for approval, or blocked.</p></div>
       </section>
 
-      {error ? <div className={error.includes("temporarily unavailable") ? "warning-bar" : "error-bar"} role="alert"><AlertTriangle aria-hidden="true" />{error}</div> : null}
+      {error && (!upstreamUnavailable || result) ? <div className={upstreamUnavailable ? "warning-bar" : "error-bar"} role="alert"><AlertTriangle aria-hidden="true" />{error}</div> : null}
 
       <section className="metrics" aria-label="Scan summary">
         <div><Activity aria-hidden="true" /><span>Observed</span><strong>{metrics.observed}</strong></div>
@@ -335,8 +336,8 @@ export function ActionLockConsole(): React.ReactElement {
       <div className="workspace">
         <section className="event-panel">
           <div className="panel-heading">
-            <div><span>Evidence stream</span><strong>Message provenance</strong></div>
-            <time>{result ? new Date(result.scannedAt).toLocaleTimeString() : "Waiting"}</time>
+            <div><span>Room messages</span><strong>Latest retained messages</strong></div>
+            <time>{result ? new Date(result.scannedAt).toLocaleTimeString() : upstreamUnavailable ? "Offline" : "Waiting"}</time>
           </div>
           <div className="event-tools">
             <label><Search aria-hidden="true" /><span className="sr-only">Search messages</span><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search sender, text, or sequence" /></label>
@@ -355,6 +356,12 @@ export function ActionLockConsole(): React.ReactElement {
                 <span>Scanning the newest retained messages...</span>
               </div>
             ) : null}
+            {!loading && upstreamUnavailable && !result ? (
+              <div className="service-state" role="status">
+                <AlertTriangle aria-hidden="true" />
+                <div><strong>Technocore messages are temporarily unavailable</strong><span>ActionLock is online. Use Scan to retry when the upstream service returns.</span></div>
+              </div>
+            ) : null}
             {filteredEvents.map((event) => (
               <button
                 className={`event-row ${selected.provenance.contentHash === event.provenance.contentHash ? "selected" : ""}`}
@@ -370,14 +377,14 @@ export function ActionLockConsole(): React.ReactElement {
                 <span className={`risk risk-${event.risk.action}`}>{event.risk.score}</span>
               </button>
             ))}
-            {!loading && !filteredEvents.length ? <div className="empty">{result?.events.length ? "No messages match this filter" : "No messages returned"}</div> : null}
+            {!loading && !filteredEvents.length && !error ? <div className="empty">{result?.events.length ? "No messages match this filter" : "This room returned no retained messages"}</div> : null}
           </div>
           <div className="retention-note"><Clock3 aria-hidden="true" /><span>Technocore exposes the newest retained window only. Increase depth up to 200; older pages are not available through the protocol.</span></div>
         </section>
 
         <aside className="policy-panel">
           <div className="panel-heading">
-            <div><span>Policy lab</span><strong>Action boundary</strong></div>
+            <div><span>Permission check</span><strong>Test an action boundary</strong></div>
             <TerminalSquare aria-hidden="true" />
           </div>
 

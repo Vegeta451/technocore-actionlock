@@ -35,6 +35,7 @@ export interface RoomRead {
   count: number;
   first_seq: string;
   last_seq: string;
+  generation?: number;
   messages: TechnocoreMessage[];
 }
 
