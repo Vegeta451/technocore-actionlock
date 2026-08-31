@@ -93,8 +93,9 @@ button:disabled { cursor: wait; opacity: .65; }
 }
 .section-title strong { font-size: 17px; }
 
-.room-control { gap: 8px; }
-.room-control label { color: var(--muted); font-size: 12px; font-weight: 650; }
+.room-control { gap: 10px; align-items: flex-end; }
+.control-field { display: grid; gap: 5px; }
+.control-field label { color: var(--muted); font-size: 10px; font-weight: 700; text-transform: uppercase; }
 input, select {
   height: 38px;
   border: 1px solid var(--line-strong);
@@ -120,7 +121,7 @@ input:focus, select:focus { border-color: var(--green); box-shadow: 0 0 0 3px #d
 }
 .room-control button svg, .evaluate-button svg { width: 16px; }
 
-.error-bar {
+.error-bar, .warning-bar {
   display: flex;
   gap: 9px;
   align-items: center;
@@ -133,6 +134,8 @@ input:focus, select:focus { border-color: var(--green); box-shadow: 0 0 0 3px #d
   font-size: 13px;
 }
 .error-bar svg { width: 17px; flex: 0 0 auto; }
+.warning-bar { border-color: #e4c088; background: var(--amber-soft); color: #7d4d08; }
+.warning-bar svg { width: 17px; flex: 0 0 auto; }
 
 .workflow-band {
   display: grid;
@@ -344,6 +347,8 @@ footer {
 .guide-intro > span, .guide-section-title span { color: var(--green); font-size: 10px; font-weight: 800; text-transform: uppercase; }
 .guide-intro h1 { max-width: 760px; margin: 10px 0 16px; font-size: clamp(32px, 5vw, 54px); line-height: 1.04; letter-spacing: 0; }
 .guide-intro p { max-width: 700px; margin: 0; color: var(--muted); font-size: 15px; line-height: 1.65; }
+.console-guide { display: grid; grid-template-columns: minmax(230px, .7fr) minmax(0, 1.5fr); gap: 28px 50px; padding: 36px clamp(18px, 8vw, 110px); border-top: 1px solid var(--line); }
+.console-guide .verification-list { grid-column: 2; }
 .boundary-diagram { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 18px; align-items: center; padding: 26px clamp(18px, 8vw, 110px); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--soft); }
 .boundary-diagram > div { display: grid; grid-template-columns: 28px 1fr; column-gap: 10px; align-items: center; }
 .boundary-diagram span { width: 28px; height: 28px; display: grid; grid-row: span 2; place-items: center; border-radius: 50%; color: #fff; background: var(--ink); font-size: 10px; font-weight: 800; }
@@ -385,15 +390,16 @@ footer {
 
 @media (max-width: 680px) {
   .topbar { height: 62px; }
+  .topbar .brand span { display: none; }
   .topbar-status { font-size: 0; }
+  .topbar-status > a:last-child { display: none; }
   .topbar-status .guide-link { display: block; max-width: 64px; overflow: hidden; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
   .command-band { align-items: stretch; flex-direction: column; gap: 15px; }
-  .room-control { width: 100%; }
+  .room-control { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) 66px 66px 40px; }
+  .room-control .control-field { min-width: 0; }
+  .control-room { min-width: 0; }
   .room-control input { min-width: 0; width: 100%; }
-  .room-control label[for="limit"] { display: none; }
-  .room-control label[for="refresh"] { display: none; }
-  .room-control select { width: 68px; flex: 0 0 68px; }
-  .room-control select#refresh { width: 62px; flex-basis: 62px; }
+  .room-control select, .room-control select#refresh { min-width: 0; width: 100%; padding-left: 8px; padding-right: 22px; }
   .room-control button { width: 40px; flex: 0 0 40px; justify-content: center; padding: 0; }
   .room-control button span { display: none; }
   .metrics { padding: 0; }
@@ -416,6 +422,8 @@ footer {
   .boundary-diagram { grid-template-columns: 1fr; gap: 12px; }
   .boundary-diagram b { display: none; }
   .guide-section { grid-template-columns: 1fr; gap: 24px; }
+  .console-guide { grid-template-columns: 1fr; gap: 24px; }
+  .console-guide .verification-list { grid-column: 1; }
   .guide-section > p, .guide-warning, .verification-list, .guide-section pre { grid-column: 1; }
   .guide-section > p { margin-top: -8px; }
   .verification-list li { grid-template-columns: 1fr; gap: 5px; }

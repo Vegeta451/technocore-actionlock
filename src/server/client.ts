@@ -70,12 +70,18 @@ export class TechnocoreClient {
 
   private async safeFetch(url: URL): Promise<string> {
     if (url.origin !== this.origin) throw new Error("Cross-origin fetch denied");
-    const response = await fetch(url, {
-      method: "GET",
-      redirect: "manual",
-      headers: { accept: "application/json" },
-      signal: AbortSignal.timeout(10_000),
-    });
+    let response: Response | null = null;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      response = await fetch(url, {
+        method: "GET",
+        redirect: "manual",
+        headers: { accept: "application/json" },
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (![502, 503, 504].includes(response.status) || attempt === 2) break;
+      await new Promise((resolveDelay) => setTimeout(resolveDelay, 250 * (attempt + 1)));
+    }
+    if (!response) throw new Error("Technocore request did not start");
     if (response.status >= 300 && response.status < 400) {
       throw new Error(`Redirect denied (${response.status})`);
     }

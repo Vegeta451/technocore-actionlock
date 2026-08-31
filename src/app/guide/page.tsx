@@ -1,4 +1,10 @@
 import { ArrowLeft, CheckCircle2, ExternalLink, LockKeyhole, ShieldCheck, TerminalSquare } from "lucide-react";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Integration Guide | ActionLock",
+  description: "Connect an agent to the local ActionLock MCP enforcement boundary.",
+};
 
 const clientConfig = `{
   "mcpServers": {
@@ -41,9 +47,20 @@ export default function GuidePage(): React.ReactElement {
       </header>
 
       <section className="guide-intro">
-        <span>Agent connection</span>
-        <h1>Route capabilities through one enforced boundary.</h1>
-        <p>The hosted console demonstrates policy decisions. Enforcement runs on the same machine as the agent, with a private secret and an explicit downstream tool policy.</p>
+        <span>Console and agent setup</span>
+        <h1>Inspect first. Connect an agent when you need enforcement.</h1>
+        <p>Use the hosted console to inspect Technocore or pasted messages without credentials. Run the local MCP boundary only when an agent must control approved downstream tools.</p>
+      </section>
+
+      <section className="console-guide" aria-label="Using the hosted console">
+        <div className="guide-section-title"><CheckCircle2 aria-hidden="true" /><div><span>Hosted console</span><h2>Inspect without installing anything</h2></div></div>
+        <ol className="verification-list">
+          <li><strong>Choose a room</strong><span>Enter a Technocore room, select a 25–200 message depth, then press <b>Scan</b>. Optional refresh runs every 30 or 60 seconds.</span></li>
+          <li><strong>Find evidence</strong><span>Search by sender, sequence, or text. Filter the current window by allowed, held, or blocked risk state.</span></li>
+          <li><strong>Select or paste</strong><span>Choose a room message, or open <b>Inspect pasted message</b> to review text from another source.</span></li>
+          <li><strong>Evaluate permissions</strong><span>Test one capability or all eight. ActionLock separates textual risk from permission to act.</span></li>
+          <li><strong>Keep a receipt</strong><span>After evaluation, download the JSON report containing evidence, decisions, rules, and binding hashes.</span></li>
+        </ol>
       </section>
 
       <section className="boundary-diagram" aria-label="ActionLock connection boundary">

@@ -167,7 +167,10 @@ export function ActionLockConsole(): React.ReactElement {
       setResult(payload);
       if (payload.events.length) setSelected(payload.events[payload.events.length - 1]);
     } catch (scanError) {
-      setError(scanError instanceof Error ? scanError.message : "Room scan failed");
+      const message = scanError instanceof Error ? scanError.message : "Room scan failed";
+      setError(message.includes("503")
+        ? "Technocore is temporarily unavailable. Existing results are preserved; retry in a few seconds."
+        : message);
     } finally {
       setLoading(false);
     }
@@ -288,7 +291,7 @@ export function ActionLockConsole(): React.ReactElement {
         <div className="topbar-status">
           <span className="status-dot" aria-hidden="true" />
           Public inspection mode
-          <a className="guide-link" href="/guide">Integration guide</a>
+          <a className="guide-link" href="/guide">How to use</a>
           <a href="https://github.com/flop-labs/technocore-chat" target="_blank" rel="noreferrer" aria-label="Technocore protocol source">
             <ExternalLink aria-hidden="true" />
           </a>
@@ -301,16 +304,13 @@ export function ActionLockConsole(): React.ReactElement {
           <div><span>Live intake</span><strong>Technocore room boundary</strong></div>
         </div>
         <div className="room-control">
-          <label htmlFor="room">Room</label>
-          <input id="room" value={room} onChange={(event) => setRoom(event.target.value.toLowerCase())} maxLength={48} />
-          <label htmlFor="limit">Depth</label>
-          <select id="limit" value={limit} onChange={(event) => setLimit(Number(event.target.value))}>
+          <div className="control-field control-room"><label htmlFor="room">Room</label><input id="room" value={room} onChange={(event) => setRoom(event.target.value.toLowerCase())} maxLength={48} /></div>
+          <div className="control-field"><label htmlFor="limit">Depth</label><select id="limit" value={limit} onChange={(event) => setLimit(Number(event.target.value))}>
             {[25, 50, 100, 200].map((value) => <option value={value} key={value}>{value}</option>)}
-          </select>
-          <label htmlFor="refresh">Refresh</label>
-          <select id="refresh" value={autoRefresh} onChange={(event) => setAutoRefresh(Number(event.target.value))}>
+          </select></div>
+          <div className="control-field"><label htmlFor="refresh">Refresh</label><select id="refresh" value={autoRefresh} onChange={(event) => setAutoRefresh(Number(event.target.value))}>
             <option value={0}>Off</option><option value={30}>30s</option><option value={60}>60s</option>
-          </select>
+          </select></div>
           <button type="button" onClick={() => void scan()} disabled={loading} title="Scan room">
             {loading ? <LoaderCircle className="spin" aria-hidden="true" /> : <RefreshCw aria-hidden="true" />}
             <span>Scan</span>
@@ -324,7 +324,7 @@ export function ActionLockConsole(): React.ReactElement {
         <div><span>3</span><p><strong>Test permissions</strong>See what is safe, held for approval, or blocked.</p></div>
       </section>
 
-      {error ? <div className="error-bar" role="alert"><AlertTriangle aria-hidden="true" />{error}</div> : null}
+      {error ? <div className={error.includes("temporarily unavailable") ? "warning-bar" : "error-bar"} role="alert"><AlertTriangle aria-hidden="true" />{error}</div> : null}
 
       <section className="metrics" aria-label="Scan summary">
         <div><Activity aria-hidden="true" /><span>Observed</span><strong>{metrics.observed}</strong></div>
