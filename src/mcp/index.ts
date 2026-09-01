@@ -12,17 +12,22 @@ import {
 import { issueEvidenceReceipt } from "../server/evidence";
 import { ActionLockGateway } from "../server/gateway";
 import { FileReplayStore } from "../server/replay";
+import { loadOrCreateReceiptSigner } from "../server/public-receipt";
 import { scanRoom } from "../server/scan";
 import { assertRootSecret, deriveSecret } from "../server/secrets";
 
-const server = new McpServer({ name: "technocore-actionlock", version: "0.2.0" });
+const server = new McpServer({ name: "technocore-actionlock", version: "0.3.0" });
 const rootSecret = assertRootSecret(process.env.ACTIONLOCK_ROOT_SECRET);
 const evidenceSecret = deriveSecret(rootSecret, "evidence");
 const approvalSecret = deriveSecret(rootSecret, "approval");
 const auditSecret = deriveSecret(rootSecret, "audit");
 const stateDirectory = resolve(process.env.ACTIONLOCK_STATE_DIR ?? "./data/actionlock");
 const auditPath = resolve(process.env.ACTIONLOCK_AUDIT_PATH ?? `${stateDirectory}/audit.ndjson`);
+const receiptKeyPath = resolve(
+  process.env.ACTIONLOCK_RECEIPT_KEY_PATH ?? `${stateDirectory}/receipt-signing-key.json`,
+);
 const configPath = resolve(process.env.ACTIONLOCK_CONFIG ?? "./actionlock.config.json");
+const receiptSigner = await loadOrCreateReceiptSigner(receiptKeyPath);
 
 let config = EMPTY_GATEWAY_CONFIG;
 try {
@@ -40,6 +45,7 @@ const gateway = new ActionLockGateway({
   auditSecret,
   replayStore: new FileReplayStore(resolve(stateDirectory, "consumed-grants")),
   auditPath,
+  receiptSigner,
 });
 
 const gatewayInput = {

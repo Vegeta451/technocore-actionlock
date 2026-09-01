@@ -10,6 +10,13 @@ import {
 import { verifyEvidenceReceipt } from "./evidence";
 import { canonicalJson, jsonHash } from "./json";
 import { analyzeText } from "./policy";
+import {
+  publicReceiptHash,
+  type ApprovalCommitment,
+  type ExecutionCommitment,
+  type PublicReceipt,
+  type PublicReceiptSigner,
+} from "./public-receipt";
 import type { ReplayStore } from "./replay";
 import type {
   ActionIntent,
@@ -48,6 +55,10 @@ export interface GatewayResult extends GatewayPreview {
   approval: "not_required" | "required" | "invalid" | "replayed" | "consumed";
   output?: unknown;
   error?: string;
+  publicReceipts?: {
+    approval: PublicReceipt<ApprovalCommitment>;
+    execution: PublicReceipt<ExecutionCommitment>;
+  };
 }
 
 export class ActionLockGateway {
@@ -60,6 +71,7 @@ export class ActionLockGateway {
       auditSecret: string;
       replayStore: ReplayStore;
       auditPath: string;
+      receiptSigner?: PublicReceiptSigner;
     },
   ) {}
 
@@ -143,7 +155,15 @@ export class ActionLockGateway {
         risk: prepared.risk,
         approvedActionHash: initial.actionHash,
       });
-      return this.forward(prepared, request, allowed, "consumed");
+      const approvalReceipt = this.options.receiptSigner?.signApproval({
+        grantId: grant.grantId,
+        server: request.server,
+        tool: request.tool,
+        action: prepared.action,
+        provenance: prepared.provenance,
+        decision: allowed,
+      });
+      return this.forward(prepared, request, allowed, "consumed", approvalReceipt);
     }
 
     return this.forward(prepared, request, initial, "not_required");
@@ -222,21 +242,22 @@ export class ActionLockGateway {
     request: GatewayRequest,
     decision: ActionLockDecision,
     approval: GatewayResult["approval"],
+    approvalReceipt?: PublicReceipt<ApprovalCommitment>,
   ): Promise<GatewayResult> {
+    let output: unknown;
     try {
-      const output = await this.options.executor.call(prepared.server, request.tool, request.arguments);
-      await this.audit(prepared.evidence, request, decision, "succeeded", jsonHash(output));
-      return {
-        evidence: prepared.evidence,
-        risk: prepared.risk,
-        review: prepared.review,
-        decision,
-        executed: true,
-        approval,
-        output,
-      };
+      output = await this.options.executor.call(prepared.server, request.tool, request.arguments);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Downstream execution failed";
+      const executionReceipt = approvalReceipt && this.options.receiptSigner
+        ? this.options.receiptSigner.signExecution({
+            actionHash: decision.actionHash,
+            approvalReceiptHash: publicReceiptHash(approvalReceipt),
+            execution: "failed",
+            outputHash: null,
+            errorCode: "downstream_error",
+          })
+        : undefined;
       await this.audit(prepared.evidence, request, decision, "failed", undefined, "downstream_error");
       return {
         evidence: prepared.evidence,
@@ -246,8 +267,35 @@ export class ActionLockGateway {
         executed: false,
         approval,
         error: message,
+        publicReceipts: approvalReceipt && executionReceipt
+          ? { approval: approvalReceipt, execution: executionReceipt }
+          : undefined,
       };
     }
+
+    const outputHash = jsonHash(output);
+    const executionReceipt = approvalReceipt && this.options.receiptSigner
+      ? this.options.receiptSigner.signExecution({
+          actionHash: decision.actionHash,
+          approvalReceiptHash: publicReceiptHash(approvalReceipt),
+          execution: "succeeded",
+          outputHash,
+          errorCode: null,
+        })
+      : undefined;
+    await this.audit(prepared.evidence, request, decision, "succeeded", outputHash);
+    return {
+      evidence: prepared.evidence,
+      risk: prepared.risk,
+      review: prepared.review,
+      decision,
+      executed: true,
+      approval,
+      output,
+      publicReceipts: approvalReceipt && executionReceipt
+        ? { approval: approvalReceipt, execution: executionReceipt }
+        : undefined,
+    };
   }
 
   private async audit(

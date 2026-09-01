@@ -1,12 +1,14 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { verifyAuditChain } from "../src/server/audit";
 import { issueApprovalGrant } from "../src/server/approval";
 import type { DownstreamExecutor, DownstreamServerConfig, GatewayConfig } from "../src/server/downstream";
 import { issueEvidenceReceipt } from "../src/server/evidence";
 import { ActionLockGateway } from "../src/server/gateway";
 import { provenanceHash } from "../src/server/protocol";
+import { loadOrCreateReceiptSigner, verifyPublicReceipt } from "../src/server/public-receipt";
 import { FileReplayStore } from "../src/server/replay";
 import type { ScanEvent } from "../src/server/types";
 
@@ -68,9 +70,11 @@ const config: GatewayConfig = {
 
 class FakeExecutor implements DownstreamExecutor {
   calls = 0;
+  fail = false;
 
   async call(server: DownstreamServerConfig, tool: string, argumentsValue: Record<string, unknown>) {
     this.calls += 1;
+    if (this.fail) throw new Error("expected downstream failure");
     return { server: server.id, tool, arguments: argumentsValue, ok: true };
   }
 }
@@ -96,6 +100,8 @@ async function fixture() {
   const directory = await mkdtemp(join(tmpdir(), "actionlock-gateway-"));
   directories.push(directory);
   const executor = new FakeExecutor();
+  const receiptSigner = await loadOrCreateReceiptSigner(join(directory, "receipt-key.json"));
+  const auditPath = join(directory, "audit.ndjson");
   const gateway = new ActionLockGateway({
     config,
     executor,
@@ -103,10 +109,11 @@ async function fixture() {
     approvalSecret,
     auditSecret,
     replayStore: new FileReplayStore(join(directory, "replay")),
-    auditPath: join(directory, "audit.ndjson"),
+    auditPath,
+    receiptSigner,
   });
   const evidenceToken = issueEvidenceReceipt({ event: scanEvent(), secret: evidenceSecret }).token;
-  return { gateway, executor, evidenceToken };
+  return { gateway, executor, evidenceToken, receiptSigner, auditPath };
 }
 
 describe("enforced MCP gateway", () => {
@@ -138,6 +145,10 @@ describe("enforced MCP gateway", () => {
     const allowed = await gateway.execute({ ...request, approvalToken });
     expect(allowed.executed).toBe(true);
     expect(allowed.approval).toBe("consumed");
+    expect(allowed.publicReceipts?.approval.kind).toBe("approval");
+    expect(allowed.publicReceipts?.execution.kind).toBe("execution");
+    expect(verifyPublicReceipt(allowed.publicReceipts?.approval).valid).toBe(true);
+    expect(verifyPublicReceipt(allowed.publicReceipts?.execution).valid).toBe(true);
     expect(executor.calls).toBe(1);
 
     const replay = await gateway.execute({ ...request, approvalToken });
@@ -203,5 +214,44 @@ describe("enforced MCP gateway", () => {
     const secondPreview = gateway.preview({ ...request, evidenceToken: secondEvidence });
     expect(secondPreview.decision.actionHash).not.toBe(approved.decision.actionHash);
     expect((await gateway.execute({ ...request, evidenceToken: secondEvidence, approvalToken })).approval).toBe("invalid");
+  });
+
+  it("records a separately signed failed execution without changing the approval commitment", async () => {
+    const { gateway, executor, evidenceToken } = await fixture();
+    executor.fail = true;
+    const request = {
+      server: "trusted",
+      tool: "write_report",
+      arguments: { title: "Evidence" },
+      evidenceToken,
+    };
+    const preview = gateway.preview(request);
+    const approvalToken = issueApprovalGrant({ actionHash: preview.decision.actionHash, secret: approvalSecret });
+    const result = await gateway.execute({ ...request, approvalToken });
+
+    expect(result.executed).toBe(false);
+    expect(result.publicReceipts?.approval.payload.actionHash).toBe(preview.decision.actionHash);
+    expect(result.publicReceipts?.execution.payload.execution).toBe("failed");
+    expect(result.publicReceipts?.execution.payload.outputHash).toBeNull();
+    expect(verifyPublicReceipt(result.publicReceipts?.execution).valid).toBe(true);
+  });
+
+  it("does not misreport a receipt-signing failure as a downstream failure", async () => {
+    const { gateway, executor, evidenceToken, receiptSigner, auditPath } = await fixture();
+    const request = {
+      server: "trusted",
+      tool: "write_report",
+      arguments: { title: "Evidence" },
+      evidenceToken,
+    };
+    const preview = gateway.preview(request);
+    const approvalToken = issueApprovalGrant({ actionHash: preview.decision.actionHash, secret: approvalSecret });
+    vi.spyOn(receiptSigner, "signExecution").mockImplementation(() => {
+      throw new Error("receipt signer unavailable");
+    });
+
+    await expect(gateway.execute({ ...request, approvalToken })).rejects.toThrow(/receipt signer unavailable/);
+    expect(executor.calls).toBe(1);
+    expect((await verifyAuditChain(auditPath, { checkpointSecret: auditSecret })).entries).toBe(0);
   });
 });

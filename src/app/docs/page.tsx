@@ -63,7 +63,7 @@ export default function DocsPage(): React.ReactElement {
       </section>
 
       <nav className="docs-nav" aria-label="Documentation sections">
-        <a href="#overview">Overview</a><a href="#how-it-works">How it works</a><a href="#console">Public console</a><a href="#setup">Agent setup</a><a href="#rules">Policy rules</a><a href="#operations">Operations</a><a href="#limits">Limits</a>
+        <a href="#overview">Overview</a><a href="#how-it-works">How it works</a><a href="#console">Public console</a><a href="#setup">Agent setup</a><a href="#rules">Policy rules</a><a href="#operations">Operations</a><a href="#receipts">Receipts</a><a href="#limits">Limits</a>
       </nav>
 
       <section className="guide-section" id="how-it-works">
@@ -131,8 +131,16 @@ export default function DocsPage(): React.ReactElement {
           <li><strong>Preview exact arguments</strong><span>Call <code>actionlock_preview</code>. Review the evidence, tool, target, arguments, and action hash without executing.</span></li>
           <li><strong>Approve outside the agent</strong><span>Run <code>npm run approve -- &lt;action-hash&gt;</code>. The one-time token expires after 120 seconds.</span></li>
           <li><strong>Execute once</strong><span>Call <code>actionlock_execute</code> without changing evidence, server, tool, arguments, or approval token.</span></li>
+          <li><strong>Keep public receipts</strong><span>Approved calls return one Ed25519 receipt for the pre-execution decision and another for the execution result.</span></li>
           <li><strong>Verify the audit</strong><span>Call <code>actionlock_verify_audit</code>. Replayed or modified approvals are rejected.</span></li>
         </ol>
+      </section>
+
+      <section className="guide-section" id="receipts">
+        <div className="guide-section-title"><Fingerprint aria-hidden="true" /><div><span>Independent evidence</span><h2>Verify public receipts without the root secret</h2></div></div>
+        <p>The local gateway creates an Ed25519 key in its private state directory. Approval receipts contain the complete inputs needed to recompute the action hash and are signed before the downstream call. Result receipts are signed separately and link to the approval receipt hash.</p>
+        <div className="command-list"><code>npm run verify:receipt -- receipt.json &lt;expected-key-id&gt;</code></div>
+        <div className="guide-warning"><strong>Pin identity outside the receipt.</strong><span>The embedded public key proves signature integrity, not who owns the key. Obtain the expected key ID from a separately trusted channel and protect the local signing-key file.</span></div>
       </section>
 
       <section className="guide-section">
@@ -148,7 +156,7 @@ export default function DocsPage(): React.ReactElement {
 
       <section className="guide-limits" id="limits">
         <h2>Security limits</h2>
-        <p>ActionLock protects only calls routed through it. Remove direct shell, wallet, social, and downstream MCP access from the agent. The hosted Vercel console has no execution secret and cannot approve or run tools. Local audit checkpoints cannot detect coordinated rollback unless the head hash is exported to an external append-only system.</p>
+        <p>ActionLock protects only calls routed through it. Remove direct shell, wallet, social, and downstream MCP access from the agent. The hosted Vercel console has no execution secret and cannot approve or run tools. Local audit checkpoints and unanchored public receipts cannot prevent selective withholding or coordinated rollback; publish hashes externally when dispute-grade persistence matters.</p>
         <a href="https://github.com/Vegeta451/technocore-actionlock/blob/main/SECURITY.md" target="_blank" rel="noreferrer">Read SECURITY.md <ExternalLink aria-hidden="true" /></a>
       </section>
     </main>

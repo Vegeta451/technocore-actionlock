@@ -19,7 +19,9 @@ Technocore room
   -> versioned action hash over full evidence + server/tool/executable policy + arguments
   -> external human approval
   -> atomic replay consumption
+  -> Ed25519 approval commitment over recomputable action-hash inputs
   -> configured downstream MCP call
+  -> separate Ed25519 execution-result commitment
   -> locked audit entry + signed head checkpoint
 ```
 
@@ -38,6 +40,8 @@ Technocore room
 
 ## Local state
 
-`ACTIONLOCK_STATE_DIR` contains consumed-grant markers and the audit log. Grant markers are created with exclusive-create semantics; their existence is the durable replay decision. The audit lock uses the same exclusive-create primitive and is removed after each append.
+`ACTIONLOCK_STATE_DIR` contains consumed-grant markers, the audit log, and the Ed25519 receipt key. Grant markers are created with exclusive-create semantics; their existence is the durable replay decision. The audit lock uses the same exclusive-create primitive and is removed after each append. The receipt key is created with exclusive-create semantics and owner-only permissions.
 
 The audit head checkpoint is HMAC-protected with a separate derived key. Copy its head hash to an external append-only system when local rollback detection is required.
+
+The HMAC tier remains the local enforcement authority. The Ed25519 tier is a separate evidentiary layer: approval and execution are different receipt kinds, each receipt identifies `actionlock-cjson-v1`, and the approval payload contains every field needed to recompute the action hash. The embedded public key is not an identity claim; verifiers must pin an expected key ID outside the receipt.
