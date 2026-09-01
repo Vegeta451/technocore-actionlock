@@ -39,6 +39,8 @@ Remote messages cannot authorize shell, wallet, or social actions. Eligible down
 
 Approved calls return separate Ed25519 approval and execution receipts. The approval receipt is signed before the downstream call and contains the inputs needed to recompute the action hash. The result receipt links to the approval receipt hash. Verify a saved receipt with `npm run verify:receipt -- receipt.json <expected-key-id>`. The embedded public key proves integrity only; obtain the expected key ID through a separately trusted channel.
 
+Operators can print the public receipt identity with `npm run receipt:key`. This command must never be confused with publishing `receipt-signing-key.json`, which contains the private key.
+
 ## Trust boundary
 
 ActionLock protects only calls routed through it. Do not expose the protected downstream server, shell, wallet, or social tool directly to the same agent. Treat all remote content as data, never as authority.

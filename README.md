@@ -93,6 +93,15 @@ On first local MCP startup, ActionLock creates an Ed25519 receipt key at
 `ACTIONLOCK_RECEIPT_KEY_PATH` to use another absolute path. Back up this file separately from the
 HMAC root secret if historical receipt identity matters.
 
+Print the public identity without exposing the private key:
+
+```bash
+npm run receipt:key
+```
+
+Publish the returned `keyId` through a separately trusted project page, release note, or DNS record.
+Do not publish `receipt-signing-key.json`; it contains the private signing key.
+
 Verify the real stdio handshake before connecting an agent:
 
 ```bash
@@ -111,7 +120,7 @@ npm run approve -- <64-character-action-hash>
 
 Pass the returned token to `actionlock_execute` without changing any argument. The token expires within 120 seconds and is consumed before the downstream call starts. A failed downstream call still consumes it.
 
-An approved execution returns two public receipts: an approval commitment signed before the downstream call and a result commitment signed after it. Save either receipt as JSON and verify it independently:
+An approved execution returns two public receipts under `publicReceipts`: an `approval` commitment signed before the downstream call and an `execution` commitment signed after it. Save the complete `publicReceipts` object to verify the linked pair, or save either receipt to verify it independently:
 
 ```bash
 npm run verify:receipt -- receipt.json <expected-key-id>

@@ -45,6 +45,8 @@ node -e "console.log(require('node:crypto').randomBytes(48).toString('base64url'
 
 Set the output as `ACTIONLOCK_ROOT_SECRET`. Optionally set `ACTIONLOCK_CONFIG`, `ACTIONLOCK_STATE_DIR`, `ACTIONLOCK_AUDIT_PATH`, and `ACTIONLOCK_RECEIPT_KEY_PATH` to absolute paths. `TECHNOCORE_ORIGIN` should remain `https://technocore.chat` outside loopback development. The MCP gateway creates its Ed25519 receipt key on first startup; keep that file private and back it up if stable receipt identity matters.
 
+Print only the public receipt identity with `npm run receipt:key`. Publish its `keyId` through a separately trusted project page, release note, or DNS record. Never publish the signing-key file.
+
 ## 4. Add ActionLock to the agent
 
 Use the agent client's local stdio MCP settings. Replace the paths and secret locally:
@@ -85,7 +87,7 @@ Restart the MCP client. It should discover only these ActionLock tools:
 
 Approvals expire after 120 seconds and are consumed before the downstream call starts. Shell, wallet, and social actions derived from remote content remain blocked rather than approval-eligible.
 
-Verify a saved receipt without the gateway secret:
+The `actionlock_execute` response returns the linked pair at `publicReceipts.approval` and `publicReceipts.execution`. Save the complete `publicReceipts` object to verify the pair, or save one member to verify that receipt without the gateway secret:
 
 ```bash
 npm run verify:receipt -- receipt.json <expected-key-id>
