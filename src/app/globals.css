@@ -57,11 +57,11 @@ button:disabled { cursor: wait; opacity: .65; }
   height: 38px;
   display: grid;
   place-items: center;
-  color: #8fe2b7;
+  color: #f6f8f5;
   border: 1px solid #526158;
   border-radius: 6px;
 }
-.brand-mark svg { width: 21px; }
+.brand-mark svg { width: 24px; height: 24px; }
 .brand div:last-child { display: grid; gap: 2px; }
 .brand strong { font-size: 15px; }
 .brand span, .topbar-status { color: #aeb7b0; font-size: 12px; }

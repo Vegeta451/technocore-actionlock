@@ -1,5 +1,6 @@
 import { ArrowLeft, CheckCircle2, ExternalLink, Fingerprint, LockKeyhole, ShieldCheck, TerminalSquare } from "lucide-react";
 import type { Metadata } from "next";
+import { ActionLockMark } from "@/components/actionlock-mark";
 
 export const metadata: Metadata = {
   title: "Documentation | ActionLock",
@@ -52,7 +53,7 @@ export default function DocsPage(): React.ReactElement {
     <main className="guide-shell">
       <header className="guide-topbar">
         <a href="/" aria-label="Back to ActionLock console"><ArrowLeft aria-hidden="true" />Console</a>
-        <div><ShieldCheck aria-hidden="true" /><strong>ActionLock documentation</strong></div>
+        <div><ActionLockMark /><strong>ActionLock documentation</strong></div>
         <a href="https://github.com/Vegeta451/technocore-actionlock" target="_blank" rel="noreferrer">GitHub <ExternalLink aria-hidden="true" /></a>
       </header>
 

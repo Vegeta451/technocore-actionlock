@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ArrowRight, Code2, ExternalLink, Fingerprint, LockKeyhole, Radar, ShieldCheck } from "lucide-react";
+import { ActionLockMark } from "@/components/actionlock-mark";
 
 export const metadata: Metadata = {
   title: "Choose a path | ActionLock",
@@ -11,7 +12,7 @@ export default function StartPage(): React.ReactElement {
     <main className="path-shell">
       <header className="path-header">
         <a className="brand" href="/">
-          <div className="brand-mark" aria-hidden="true"><ShieldCheck /></div>
+          <div className="brand-mark"><ActionLockMark /></div>
           <div><strong>ActionLock</strong><span>Capability firewall for Technocore</span></div>
         </a>
         <a href="https://github.com/Vegeta451/technocore-actionlock" target="_blank" rel="noreferrer">

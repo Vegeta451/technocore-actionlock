@@ -141,6 +141,15 @@ The hosted application is stateless by design:
 
 Create it as a separate Vercel project. Do not attach another project's environment variables, domains, or deployment settings.
 
+## Brand assets
+
+The ActionLock mark combines an `A` boundary with an `L` controlled exit. The white crossbar is an observed message and the amber point is its evidence commitment.
+
+- `public/brand/actionlock-x-avatar.png` — X profile image, 400 × 400
+- `public/brand/actionlock-x-banner.png` — X banner, 1500 × 500
+- `public/brand/actionlock-mark-master.png` — transparent raster master, 1024 × 1024
+- `public/brand/actionlock-mark.svg` — scalable dark-on-light mark
+
 ## Verification
 
 ```bash

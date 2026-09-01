@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { listPins, pinEvidence, removePin, type PinnedEvidence } from "@/client/pins";
+import { ActionLockMark } from "@/components/actionlock-mark";
 
 type Verification = "verified" | "invalid" | "server_signed_lane" | "unsigned" | "not_available";
 type Capability =
@@ -367,7 +368,7 @@ export function ActionLockConsole(): React.ReactElement {
     <main className="shell">
       <header className="topbar">
         <div className="brand">
-          <div className="brand-mark" aria-hidden="true"><ShieldCheck /></div>
+          <div className="brand-mark"><ActionLockMark /></div>
           <div>
             <strong>ActionLock</strong>
             <span>Capability firewall for Technocore</span>
