@@ -3,6 +3,8 @@ node_modules/
 .next-stale-*/
 out/
 coverage/
+playwright-report/
+test-results/
 data/
 .env
 .env.local

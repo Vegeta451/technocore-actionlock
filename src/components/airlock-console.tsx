@@ -189,16 +189,20 @@ export function ActionLockConsole(): React.ReactElement {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/scan?room=${encodeURIComponent(room)}&limit=${limit}`);
+      const response = await fetch(`/api/scan?room=${encodeURIComponent(room)}&limit=${limit}`, {
+        signal: AbortSignal.timeout(20_000),
+      });
       const payload = (await response.json()) as ScanResult & { error?: string };
       if (!response.ok) throw new Error(payload.error ?? "Room scan failed");
       setResult(payload);
       if (payload.events.length) setSelected(payload.events[payload.events.length - 1]);
     } catch (scanError) {
       const message = scanError instanceof Error ? scanError.message : "Room scan failed";
-      setError(message.includes("503")
-        ? "Technocore is temporarily unavailable. Existing results are preserved; retry in a few seconds."
-        : message);
+      const timeout = scanError instanceof Error && ["TimeoutError", "AbortError"].includes(scanError.name);
+      const detail = timeout ? "Room scan timed out. Use Scan to retry."
+        : message.includes("503") ? "Technocore is temporarily unavailable. Use Scan to retry."
+        : "Room scan failed. Use Scan to retry.";
+      setError(result ? `${detail} Showing previous results from ${result.room}; they are not a fresh scan.` : detail);
     } finally {
       setLoading(false);
     }
@@ -395,7 +399,7 @@ export function ActionLockConsole(): React.ReactElement {
           <div className="control-field"><label htmlFor="refresh">Refresh</label><select id="refresh" value={autoRefresh} onChange={(event) => setAutoRefresh(Number(event.target.value))}>
             <option value={0}>Off</option><option value={30}>30s</option><option value={60}>60s</option>
           </select></div>
-          <button type="button" onClick={() => void scan()} disabled={loading} title="Scan room">
+          <button type="button" onClick={() => void scan()} disabled={loading} title="Scan room" aria-label="Scan">
             {loading ? <LoaderCircle className="spin" aria-hidden="true" /> : <RefreshCw aria-hidden="true" />}
             <span>Scan</span>
           </button>
@@ -434,7 +438,7 @@ export function ActionLockConsole(): React.ReactElement {
           <div className="sequence-lookup">
             <div><SearchCheck aria-hidden="true" /><label htmlFor="sequence">Exact sequence</label></div>
             <input id="sequence" inputMode="numeric" pattern="[0-9]*" maxLength={24} value={sequence} onChange={(event) => setSequence(event.target.value.replace(/\D/g, ""))} placeholder="14992315" />
-            <button type="button" onClick={() => void lookupSequence()} disabled={lookingUp || !sequence}>
+            <button type="button" onClick={() => void lookupSequence()} disabled={lookingUp || !sequence} aria-label="Find exact sequence">
               {lookingUp ? <LoaderCircle className="spin" aria-hidden="true" /> : <Search aria-hidden="true" />}<span>Find</span>
             </button>
             <span className={`lookup-state lookup-${lookupStatus?.status ?? "idle"}`} aria-live="polite">
@@ -476,7 +480,7 @@ export function ActionLockConsole(): React.ReactElement {
                 <span className={`risk risk-${event.risk.action}`}>{event.risk.score}</span>
               </button>
             ))}
-            {!loading && !filteredEvents.length && !error ? <div className="empty">{result?.events.length ? "No messages match this filter" : "This room returned no retained messages"}</div> : null}
+            {!loading && !filteredEvents.length && !error ? <div className="empty">{result?.events.length ? "No messages match this filter" : result?.rejectedCount ? "No valid records in this response" : "This room returned no retained messages"}</div> : null}
           </div>
           <div className="retention-note"><Clock3 aria-hidden="true" /><span>Live scans show the newest 200 messages. Exact lookup searches the room export while the record remains retained; it cannot recover data already rotated out.</span></div>
           <details className="pinned-evidence">

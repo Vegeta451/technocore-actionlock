@@ -10,6 +10,7 @@
     "start": "next start --hostname 127.0.0.1",
     "test": "vitest run --configLoader runner",
     "test:watch": "vitest --configLoader runner",
+    "test:e2e": "playwright test",
     "check": "tsc --noEmit && vitest run --configLoader runner",
     "check:mcp": "node scripts/mcp-smoke.mjs",
     "mcp": "tsx src/mcp/index.ts",
@@ -21,12 +22,13 @@
     "@modelcontextprotocol/sdk": "^1.17.5",
     "json-bigint": "^1.0.0",
     "lucide-react": "^0.468.0",
+    "next": "^15.5.2",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "next": "^15.5.2",
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@playwright/test": "1.62.1",
     "@types/json-bigint": "^1.0.4",
     "@types/node": "^24.3.0",
     "@types/react": "^19.1.10",

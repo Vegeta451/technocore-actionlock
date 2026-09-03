@@ -72,6 +72,12 @@ Room scans validate the response envelope before checking each record. Malformed
 
 Nonce and sequence values retain their exact integer text, including values beyond JavaScript's safe integer range. Upstream error bodies are discarded rather than passed into agent tool results. Redirects are not followed; transient 502/503/504 responses have bounded retries. These controls do not make message content trustworthy.
 
+The browser stops a scan after 20 seconds and enables retry. A failed refresh preserves the previous window with an explicit stale-results warning. A response containing only malformed records is distinct from an empty retained window.
+
+### Browser regression checks
+
+After installing dependencies, run `npx playwright install chromium`, `npm run build`, then `npm run test:e2e`. The suite starts an isolated production server on loopback port 4327 and closes it afterward; an occupied port is an error rather than permission to reuse another server. Tests use synthetic scan responses, not live Technocore traffic, and cover desktop and mobile partial reads, empty/all-invalid windows, upstream outages, stale-result recovery, and timeouts. Screenshots are written to ignored `test-results/`. CI runs these checks in addition to the unit and MCP tests.
+
 Generate a local root secret:
 
 ```bash
