@@ -31,6 +31,7 @@ export interface TechnocoreMessage {
 }
 
 export interface RoomRead {
+  rejectedCount: number;
   room: string;
   count: number;
   first_seq: string;

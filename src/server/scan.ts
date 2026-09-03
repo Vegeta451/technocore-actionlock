@@ -23,12 +23,13 @@ export async function scanRoom(input: {
   room: string;
   limit?: number;
   origin?: string;
-}): Promise<{ room: string; scannedAt: string; events: ScanEvent[] }> {
+}): Promise<{ room: string; scannedAt: string; rejectedCount: number; events: ScanEvent[] }> {
   const client = new TechnocoreClient(input.origin);
   const read = await client.readRoom(input.room, input.limit ?? 25);
   return {
     room: read.room,
     scannedAt: new Date().toISOString(),
+    rejectedCount: read.rejectedCount,
     events: read.messages.map((message) => eventFor(read.room, message, client.origin)),
   };
 }

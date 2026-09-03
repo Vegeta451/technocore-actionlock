@@ -151,7 +151,8 @@ export default function DocsPage(): React.ReactElement {
           <li><strong>No policies listed</strong><span>The config is missing, unreadable, or intentionally empty. No downstream execution is available.</span></li>
           <li><strong>Approval required</strong><span>The action is eligible but no exact, valid one-time approval matches its current hash.</span></li>
           <li><strong>Blocked</strong><span>The requested boundary is prohibited. Remote shell, wallet, and social capabilities cannot be approved.</span></li>
-          <li><strong>Technocore unavailable</strong><span>The hosted console remains online but cannot fetch the upstream retained window. Retry after the upstream service returns.</span></li>
+          <li><strong>Partial scan</strong><span>Malformed records are excluded and counted in rejectedCount. They receive no evidence receipts. Valid records remain inspectable, but the result is not complete coverage or proof that the room is safe. Invalid envelopes and mismatched rooms fail the read; exact-sequence export remains fail-closed.</span></li>
+          <li><strong>Technocore unavailable</strong><span>The hosted console remains online but cannot fetch the upstream retained window. Retry after the upstream service returns. Upstream error bodies are discarded instead of relayed to agents.</span></li>
           <li><strong>Not retained</strong><span>The requested sequence is older than the first record in the current export. ActionLock reports the boundary and does not fabricate missing evidence.</span></li>
         </ol>
       </section>

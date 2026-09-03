@@ -59,6 +59,7 @@ interface LookupResult {
 }
 
 interface ScanResult {
+  rejectedCount: number;
   room: string;
   scannedAt: string;
   events: ScanEvent[];
@@ -408,6 +409,7 @@ export function ActionLockConsole(): React.ReactElement {
       </section>
 
       {error && (!upstreamUnavailable || result) ? <div className={upstreamUnavailable ? "warning-bar" : "error-bar"} role="alert"><AlertTriangle aria-hidden="true" />{error}</div> : null}
+      {result && result.rejectedCount > 0 ? <div className="warning-bar" role="status"><AlertTriangle aria-hidden="true" />Partial scan: {result.rejectedCount} malformed records excluded. Displayed results do not cover the entire returned window.</div> : null}
 
       <section className="metrics" aria-label="Scan summary">
         <div><Activity aria-hidden="true" /><span>Observed</span><strong>{metrics.observed}</strong></div>

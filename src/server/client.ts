@@ -24,11 +24,20 @@ const roomReadSchema = z.object({
   first_seq: numericString,
   last_seq: numericString,
   generation: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).optional(),
-  messages: z.array(messageSchema).max(200),
+  messages: z.array(z.unknown()).max(200),
 }).strict();
 
 export function parseRoomRead(raw: string): RoomRead {
-  return roomReadSchema.parse(JSONbig.parse(raw)) as RoomRead;
+  const envelope = roomReadSchema.parse(JSONbig.parse(raw));
+  if (envelope.count !== envelope.messages.length) {
+    throw new Error("Technocore response count does not match its message window");
+  }
+  const messages: TechnocoreMessage[] = [];
+  for (const record of envelope.messages) {
+    const parsed = messageSchema.safeParse(record);
+    if (parsed.success) messages.push(parsed.data);
+  }
+  return { ...envelope, messages, rejectedCount: envelope.count - messages.length };
 }
 
 export interface SequenceLookup {
@@ -54,11 +63,15 @@ export class TechnocoreClient {
 
   async readRoom(room: string, limit = 50): Promise<RoomRead> {
     if (!isValidRoom(room)) throw new Error("Invalid room name");
-    const boundedLimit = Math.min(Math.max(limit, 1), 200);
+    if (!Number.isInteger(limit) || limit < 1 || limit > 200) {
+      throw new Error("Limit must be an integer from 1 to 200");
+    }
     const url = new URL(`/r/${room}`, this.origin);
     url.searchParams.set("format", "json");
-    url.searchParams.set("limit", String(boundedLimit));
-    return parseRoomRead(await this.safeFetch(url));
+    url.searchParams.set("limit", String(limit));
+    const read = parseRoomRead(await this.safeFetch(url));
+    if (read.room !== room) throw new Error("Technocore response room does not match the requested room");
+    return read;
   }
 
   async findMessageBySequence(room: string, sequence: string): Promise<SequenceLookup> {
@@ -168,15 +181,18 @@ export class TechnocoreClient {
         signal: AbortSignal.timeout(15_000),
       });
       if (![502, 503, 504].includes(response.status) || attempt === 2) break;
+      await response.body?.cancel();
       await new Promise((resolveDelay) => setTimeout(resolveDelay, 250 * (attempt + 1)));
     }
     if (!response) throw new Error("Technocore request did not start");
     if (response.status >= 300 && response.status < 400) {
+      await response.body?.cancel();
       throw new Error(`Redirect denied (${response.status})`);
     }
     if (!response.ok) {
-      const detail = (await response.text()).slice(0, 240).replace(/\s+/g, " ");
-      throw new Error(`Technocore responded ${response.status}: ${detail}`);
+      // Error bodies are untrusted; never echo them into agent tool results.
+      await response.body?.cancel();
+      throw new Error(`Technocore responded ${response.status}`);
     }
     return response;
   }

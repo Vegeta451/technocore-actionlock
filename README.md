@@ -66,6 +66,12 @@ The console distinguishes an empty retained window, a record that has rotated ou
 
 ## Run the enforced MCP gateway
 
+### Partial reads and upstream failures
+
+Room scans validate the response envelope before checking each record. Malformed records are excluded, never repaired or issued evidence receipts. Both the console and MCP response report `rejectedCount`; a nonzero value means partial coverage, not a clean room. A malformed envelope, inconsistent count, or mismatched room fails the entire read. Exact-sequence exports remain fail-closed on malformed records.
+
+Nonce and sequence values retain their exact integer text, including values beyond JavaScript's safe integer range. Upstream error bodies are discarded rather than passed into agent tool results. Redirects are not followed; transient 502/503/504 responses have bounded retries. These controls do not make message content trustworthy.
+
 Generate a local root secret:
 
 ```bash
