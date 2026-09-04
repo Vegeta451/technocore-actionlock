@@ -183,7 +183,11 @@ Tests cover canonical Technocore signatures, big-integer evidence, HMAC receipt 
 CI runs behavior checks and the production dependency audit in separate jobs.
 Dependency installation uses `npm ci --no-audit` only to avoid a duplicate registry
 audit; the dedicated job runs `npm audit --package-lock-only --omit=dev` with bounded
-network retries and a three-minute job limit. It reads the committed lockfile
+network retries and a three-minute job limit. That job uses npm 12.0.2 under Node 24,
+installed into the runner's temporary directory with lifecycle scripts disabled.
+This removes the retired quick-audit fallback; it does not bypass a failed bulk
+advisory request. Application installation and tests continue using Node 22 and
+the unchanged lockfile. The auditor reads the committed lockfile
 without installing or running package scripts. The final `verify` check requires
 both jobs to succeed. A registry timeout is an incomplete audit, not a clean
 security result, and still fails `verify`. For branch protection, require `verify`,
