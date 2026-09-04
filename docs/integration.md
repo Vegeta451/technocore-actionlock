@@ -95,6 +95,15 @@ npm run verify:receipt -- receipt.json <expected-key-id>
 
 Always obtain the expected key ID through a separately trusted channel. Reading it only from the receipt verifies signature integrity but not the operator's identity. The approval receipt records what the gateway allowed before execution; the execution receipt separately records success or failure and links back to the approval receipt hash.
 
+V1 verification checks the complete envelope and payload shape, UTC ISO timestamps,
+canonical unpadded base64url encoding, and an actual Ed25519 SPKI public key. Missing,
+mistyped, and unknown fields are rejected, even if signed. A linked pair must contain
+an approval in the approval slot and an execution in the execution slot, signed by
+the same key. Listing multiple trusted key IDs does not authorize cross-key pairs.
+Keep a rotation between calls, not between approval and result; authenticated
+rotation history is not implemented. A timestamp is still an operator assertion,
+not independent time evidence. Valid historical `failed` receipts remain readable.
+
 ## Execution outcomes and reconciliation
 
 Read `executionStatus`, not only the legacy `executed` boolean:

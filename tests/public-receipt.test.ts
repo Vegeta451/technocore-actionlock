@@ -1,7 +1,11 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
+import { createPrivateKey, sign } from "node:crypto";
+import { canonicalJson } from "../src/server/json";
 import { evaluateCapability } from "../src/server/capability";
 import {
   loadOrCreateReceiptSigner,
@@ -43,7 +47,94 @@ async function signerFixture() {
   return { signer: await loadOrCreateReceiptSigner(path), path };
 }
 
+async function resignFixture(value: object, path: string) {
+  const keyFile = JSON.parse(await readFile(path, "utf8"));
+  const key = createPrivateKey({ key: Buffer.from(keyFile.privateKey, "base64url"), format: "der", type: "pkcs8" });
+  const { signature: _signature, ...unsigned } = value as Record<string, unknown>;
+  return { ...unsigned, signature: sign(null, Buffer.from(`actionlock:public-receipt:v1\n${canonicalJson(unsigned)}`), key).toString("base64url") };
+}
+
+async function approvalFixture() {
+  const fixture = await signerFixture();
+  const initial = evaluateCapability({ action, provenance, risk });
+  const decision = evaluateCapability({ action, provenance, risk, approvedActionHash: initial.actionHash });
+  const approval = fixture.signer.signApproval({ grantId: "e".repeat(32), server: "trusted", tool: "write_report", action, provenance, decision });
+  return { ...fixture, approval };
+}
+
 describe("public Ed25519 receipts", () => {
+  it("checks malformed signed fields without relying on signature failure", async () => {
+    const { approval, path } = await approvalFixture();
+    const malformed = [
+      { ...approval, extra: "unsupported extension" },
+      { ...approval, payload: { ...approval.payload, extra: true } },
+      { ...approval, payload: { ...approval.payload, tool: 42 } },
+      { ...approval, payload: { ...approval.payload, approvedAt: "2026-09-04" } },
+    ];
+    for (const value of malformed) {
+      expect(verifyPublicReceipt(await resignFixture(value, path)).valid).toBe(false);
+    }
+  });
+
+  it("exits unsuccessfully from the standalone CLI for a malformed signed receipt", async () => {
+    const { approval, signer, path } = await approvalFixture();
+    const receiptPath = join(path, "..", "receipt.json");
+    const run = promisify(execFile);
+    const args = ["--import", "tsx", "src/cli/verify-receipt.ts", receiptPath, signer.keyId];
+    await writeFile(receiptPath, JSON.stringify(approval));
+    const valid = await run(process.execPath, args);
+    expect(JSON.parse(valid.stdout).valid).toBe(true);
+    const malformed = await resignFixture({ ...approval, payload: { ...approval.payload, tool: null } }, path);
+    await writeFile(receiptPath, JSON.stringify(malformed));
+    await expect(run(process.execPath, args)).rejects.toMatchObject({ code: 1 });
+  });
+
+  it("rejects signed unknown outcome states", async () => {
+    const { signer, path } = await signerFixture();
+    const receipt = signer.signExecution({ actionHash: "a".repeat(64), approvalReceiptHash: "b".repeat(64), execution: "succeeded", outputHash: "c".repeat(64), errorCode: null });
+    const malformed = { ...receipt, payload: { ...receipt.payload, execution: "unknown" } };
+    expect(verifyPublicReceipt(await resignFixture(malformed, path)).valid).toBe(false);
+  });
+
+  it("rejects signed approval payloads with missing routing fields", async () => {
+    const { approval, path } = await approvalFixture();
+    const { server: _server, ...payload } = approval.payload;
+    expect(verifyPublicReceipt(await resignFixture({ ...approval, payload }, path)).valid).toBe(false);
+  });
+
+  it("rejects a signed failed receipt with a non-string error code", async () => {
+    const { signer, path } = await signerFixture();
+    const receipt = signer.signExecution({ actionHash: "a".repeat(64), approvalReceiptHash: "b".repeat(64), execution: "failed", outputHash: null, errorCode: "downstream_failed" });
+    expect(verifyPublicReceipt(receipt).valid).toBe(true);
+    expect(verifyPublicReceipt(await resignFixture({ ...receipt, payload: { ...receipt.payload, errorCode: 42 } }, path)).valid).toBe(false);
+  });
+
+  it("rejects non-canonical signature encoding even when decoded bytes are unchanged", async () => {
+    const { approval } = await approvalFixture();
+    const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
+    const last = alphabet.indexOf(approval.signature.at(-1)!);
+    const signature = approval.signature.slice(0, -1) + alphabet[last + 1];
+    expect(Buffer.from(signature, "base64url")).toEqual(Buffer.from(approval.signature, "base64url"));
+    expect(verifyPublicReceipt({ ...approval, signature }).valid).toBe(false);
+  });
+
+  it("requires an approval receipt in the approval slot", async () => {
+    const { signer } = await signerFixture();
+    const approval = signer.signExecution({ actionHash: "a".repeat(64), approvalReceiptHash: "b".repeat(64), execution: "succeeded", outputHash: "c".repeat(64), errorCode: null });
+    const execution = signer.signExecution({ actionHash: approval.payload.actionHash, approvalReceiptHash: publicReceiptHash(approval), execution: "succeeded", outputHash: "d".repeat(64), errorCode: null });
+    expect(verifyPublicReceipt(approval).valid).toBe(true);
+    expect(verifyPublicReceiptBundle({ approval, execution }).valid).toBe(false);
+  });
+
+  it("requires the same signer for a V1 approval/result pair", async () => {
+    const { signer, approval } = await approvalFixture();
+    const other = await signerFixture();
+    const execution = other.signer.signExecution({ actionHash: approval.payload.actionHash, approvalReceiptHash: publicReceiptHash(approval), execution: "succeeded", outputHash: "d".repeat(64), errorCode: null });
+    const options = { expectedKeyIds: [signer.keyId, other.signer.keyId] };
+    expect(verifyPublicReceipt(execution, options).valid).toBe(true);
+    expect(verifyPublicReceiptBundle({ approval, execution }, options).valid).toBe(false);
+  });
+
   it("signs a recomputable approval commitment and pins the expected key", async () => {
     const { signer, path } = await signerFixture();
     const initial = evaluateCapability({ action, provenance, risk });

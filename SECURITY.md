@@ -13,6 +13,7 @@
 9. The hosted application contains no root secret, private key, downstream config, approval issuer, or write endpoint.
 10. A public Ed25519 approval receipt is created only after a valid grant is atomically consumed and before the downstream call begins.
 11. Execution results are separately signed and linked to the approval receipt hash; they cannot redefine the approved action.
+12. V1 public verification rejects malformed signed envelopes and payloads, non-canonical signature encodings, incorrect receipt kinds, and mixed-key approval/result pairs. This is structural and cryptographic validation, not proof of a real-world effect or a fresh execution authorization.
 
 ## Trust boundaries
 

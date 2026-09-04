@@ -9,6 +9,7 @@ import {
 } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
+import { z } from "zod";
 import { canonicalJson, jsonHash } from "./json";
 import type { ActionIntent, ActionLockDecision, Provenance } from "./types";
 
@@ -94,13 +95,53 @@ function signingBytes(value: object): Buffer {
   return Buffer.from(`${RECEIPT_DOMAIN}${canonicalJson(value)}`, "utf8");
 }
 
-function assertHash(value: unknown, name: string): asserts value is string {
-  if (typeof value !== "string" || !/^[a-f0-9]{64}$/.test(value)) throw new Error(`Invalid ${name}`);
-}
-
-function isHashOrNull(value: unknown): value is string | null {
-  return value === null || (typeof value === "string" && /^[a-f0-9]{64}$/.test(value));
-}
+const hashSchema = z.string().regex(/^[a-f0-9]{64}$/);
+const timestampSchema = z.string().datetime().refine((value) => Number.isFinite(Date.parse(value)));
+const approvalSchema = z.object({
+  commitment: z.literal("actionlock:approval-commitment:v1"),
+  approvedAt: timestampSchema,
+  grantId: z.string().regex(/^[a-f0-9]{32}$/),
+  server: z.string().min(1),
+  tool: z.string().min(1),
+  actionHash: hashSchema,
+  action: z.object({
+    capability: z.enum(["observe", "network_read", "network_write", "file_read", "file_write", "shell", "wallet", "social"]),
+    operation: z.string().min(1),
+    target: z.string().nullable(),
+    boundary: z.literal("downstream"),
+    argumentsHash: hashSchema.nullable(),
+    sourceHash: hashSchema,
+    evidenceContextHash: hashSchema.nullable(),
+    executionPolicyHash: hashSchema.nullable(),
+  }).strict(),
+  decision: z.object({ decision: z.literal("allow"), rule: z.literal("ACTIONLOCK-031") }).strict(),
+}).strict();
+const executionSchema = z.object({
+  commitment: z.literal("actionlock:execution-result:v1"),
+  completedAt: timestampSchema,
+  actionHash: hashSchema,
+  approvalReceiptHash: hashSchema,
+  execution: z.enum(["succeeded", "failed"]),
+  outputHash: hashSchema.nullable(),
+  errorCode: z.string().min(1).nullable(),
+}).strict().refine((value) => value.execution === "succeeded"
+  ? value.outputHash !== null && value.errorCode === null
+  : value.outputHash === null && value.errorCode !== null);
+const receiptSchema = z.object({
+  version: z.literal(1),
+  issuer: z.literal("actionlock"),
+  kind: z.enum(["approval", "execution"]),
+  canonicalization: z.literal(RECEIPT_CANONICALIZATION),
+  key: z.object({
+    algorithm: z.literal("Ed25519"),
+    keyId: hashSchema,
+    publicKey: z.string().regex(/^[A-Za-z0-9_-]{59}$/)
+      .refine((value) => Buffer.from(value, "base64url").toString("base64url") === value),
+  }).strict(),
+  payload: z.unknown(),
+  signature: z.string().regex(/^[A-Za-z0-9_-]{86}$/)
+    .refine((value) => Buffer.from(value, "base64url").toString("base64url") === value),
+}).strict();
 
 function recomputeActionHash(payload: ApprovalCommitment): string {
   return jsonHash({
@@ -117,35 +158,12 @@ function recomputeActionHash(payload: ApprovalCommitment): string {
 }
 
 function validatePayload(receipt: PublicReceipt): boolean {
-  const payload = receipt.payload;
   if (receipt.kind === "approval") {
-    if (payload.commitment !== "actionlock:approval-commitment:v1") return false;
-    const approval = payload as ApprovalCommitment;
-    assertHash(approval.actionHash, "action hash");
-    assertHash(approval.action.sourceHash, "source hash");
-    if (
-      approval.decision.decision !== "allow" ||
-      approval.decision.rule !== "ACTIONLOCK-031" ||
-      approval.action.boundary !== "downstream" ||
-      !isHashOrNull(approval.action.argumentsHash) ||
-      !isHashOrNull(approval.action.evidenceContextHash) ||
-      !isHashOrNull(approval.action.executionPolicyHash)
-    ) return false;
-    if (!/^[a-f0-9]{32}$/.test(approval.grantId)) return false;
-    if (!Number.isFinite(Date.parse(approval.approvedAt))) return false;
-    return recomputeActionHash(approval) === approval.actionHash;
+    const result = approvalSchema.safeParse(receipt.payload);
+    return result.success && recomputeActionHash(result.data) === result.data.actionHash;
   }
   if (receipt.kind === "execution") {
-    if (payload.commitment !== "actionlock:execution-result:v1") return false;
-    const execution = payload as ExecutionCommitment;
-    assertHash(execution.actionHash, "action hash");
-    assertHash(execution.approvalReceiptHash, "approval receipt hash");
-    if (execution.outputHash !== null) assertHash(execution.outputHash, "output hash");
-    if (
-      (execution.execution === "succeeded" && (execution.outputHash === null || execution.errorCode !== null)) ||
-      (execution.execution === "failed" && (execution.outputHash !== null || execution.errorCode === null))
-    ) return false;
-    return Number.isFinite(Date.parse(execution.completedAt));
+    return executionSchema.safeParse(receipt.payload).success;
   }
   return false;
 }
@@ -258,14 +276,8 @@ export function verifyPublicReceipt(
   try {
     const receipt = value as PublicReceipt;
     if (
-      !receipt ||
-      receipt.version !== 1 ||
-      receipt.issuer !== "actionlock" ||
-      (receipt.kind !== "approval" && receipt.kind !== "execution") ||
-      receipt.canonicalization !== RECEIPT_CANONICALIZATION ||
-      receipt.key?.algorithm !== "Ed25519" ||
+      !receiptSchema.safeParse(value).success ||
       receipt.key.keyId !== keyId(receipt.key.publicKey) ||
-      !/^[A-Za-z0-9_-]{86}$/.test(receipt.signature) ||
       !validatePayload(receipt)
     ) {
       return { valid: false, keyId: null, kind: null, receiptHash: null };
@@ -274,7 +286,10 @@ export function verifyPublicReceipt(
       return { valid: false, keyId: receipt.key.keyId, kind: receipt.kind, receiptHash: null };
     }
     const { signature, ...unsigned } = receipt;
-    const valid = verify(null, signingBytes(unsigned), publicKeyFrom(receipt.key.publicKey), Buffer.from(signature, "base64url"));
+    const publicKey = publicKeyFrom(receipt.key.publicKey);
+    const valid = publicKey.asymmetricKeyType === "ed25519" &&
+      encodePublicKey(publicKey) === receipt.key.publicKey &&
+      verify(null, signingBytes(unsigned), publicKey, Buffer.from(signature, "base64url"));
     return {
       valid,
       keyId: receipt.key.keyId,
@@ -302,6 +317,8 @@ export function verifyPublicReceiptBundle(
   const executionReceipt = bundle.execution as PublicReceipt<ExecutionCommitment>;
   return {
     valid:
+      approval.kind === "approval" && execution.kind === "execution" &&
+      approval.keyId === execution.keyId &&
       executionReceipt.payload.actionHash === approvalReceipt.payload.actionHash &&
       executionReceipt.payload.approvalReceiptHash === publicReceiptHash(approvalReceipt),
     approval,
