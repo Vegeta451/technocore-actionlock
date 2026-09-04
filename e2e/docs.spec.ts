@@ -5,6 +5,7 @@ test("receipt docs link to the published conformance vectors", async ({ page, re
   const link = page.getByRole("link", { name: "fixed JSON, UTF-8 and SHA-256 vectors" });
   await expect(link).toBeVisible();
   await expect(link).toHaveAttribute("href", "/conformance/canonical-json-v1.json");
+  await expect(page.getByRole("link", { name: "planned key-transition guide" })).toHaveAttribute("href", "https://github.com/Vegeta451/technocore-actionlock/blob/main/docs/key-transitions.md");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.locator("#receipts").screenshot({ path: info.outputPath("receipt-docs.png") });
   const response = await request.get("/conformance/canonical-json-v1.json");

@@ -12,9 +12,11 @@ import { dirname } from "node:path";
 import { z } from "zod";
 import { canonicalJson, jsonHash } from "./json";
 import type { ActionIntent, ActionLockDecision, Provenance } from "./types";
+import type { KeyTransitionStatement } from "./key-transition";
 
 const RECEIPT_DOMAIN = "actionlock:public-receipt:v1\n";
 export const RECEIPT_CANONICALIZATION = "actionlock-cjson-v1" as const;
+export const KEY_TRANSITION_DOMAIN = "actionlock:key-transition:v1\n";
 
 interface ReceiptKeyFile {
   version: 1;
@@ -173,8 +175,15 @@ export class PublicReceiptSigner {
   readonly publicKey: string;
 
   constructor(private readonly privateKey: KeyObject, publicKey: KeyObject) {
+    if (privateKey.asymmetricKeyType !== "ed25519" || publicKey.asymmetricKeyType !== "ed25519") {
+      throw new Error("Receipt keys must use Ed25519");
+    }
     this.publicKey = encodePublicKey(publicKey);
     this.keyId = keyId(this.publicKey);
+  }
+
+  signKeyTransition(statement: KeyTransitionStatement): string {
+    return sign(null, Buffer.from(`${KEY_TRANSITION_DOMAIN}${canonicalJson(statement)}`, "utf8"), this.privateKey).toString("base64url");
   }
 
   signApproval(input: {
@@ -255,6 +264,10 @@ export async function loadOrCreateReceiptSigner(path: string): Promise<PublicRec
     if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
   }
 
+  return loadReceiptSigner(path);
+}
+
+export async function loadReceiptSigner(path: string): Promise<PublicReceiptSigner> {
   const parsed = JSON.parse(await readFile(path, "utf8")) as ReceiptKeyFile;
   if (parsed.version !== 1 || parsed.algorithm !== "Ed25519" || parsed.keyId !== keyId(parsed.publicKey)) {
     throw new Error("Invalid ActionLock receipt signing key file");

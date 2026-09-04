@@ -44,6 +44,7 @@
 - The HMAC checkpoint does not prevent coordinated rollback of both local audit files. Export the head hash to an external append-only log when rollback detection matters.
 - Root-secret compromise allows forged local evidence, approvals, and checkpoints. Rotate it and discard untrusted local state after compromise.
 - Receipt-key compromise allows forged public receipts for that key ID. Rotate to a new key file, publish the new key ID, and mark the old key's compromise time externally.
+- Planned dual-signed key transitions are local, one-hop records only. They do not activate keys, revoke old keys, prove latest-key status, prevent forks/rollback, or provide independent timestamps. Never use a compromised old key as the sole authority for recovery; establish a new pin out of band. See `docs/key-transitions.md`.
 - A self-contained receipt proves key control, not key ownership. Verification without an independently pinned expected key ID is cryptographic integrity only.
 - `actionlock-cjson-v1` is ActionLock's strict sorted-key JSON profile, not a claim of general RFC 8785 interoperability.
 - Public receipts are returned to the caller but are not externally anchored. Loss, selective withholding, and rollback remain possible until a receipt hash is published to an append-only system.

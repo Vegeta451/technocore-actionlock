@@ -141,6 +141,13 @@ npm run verify:receipt -- receipt.json <expected-key-id>
 
 The embedded public key verifies the signature but does not establish who owns that key. Pin the expected key ID from a separately trusted channel. Key rotation uses a new key file; retain the old public key ID when historical receipts must remain attributable.
 
+For a planned change, `receipt:transition` prepares a public handover signed by
+both existing keys, and `verify:transition` checks it against a separately trusted
+old key ID. These local commands do not activate keys, publish records, or change
+trust pins. See [planned key transitions](docs/key-transitions.md) for the complete
+workflow and limits. Revocation, compromise recovery, and an externally anchored
+rotation history are not implemented.
+
 ## Vercel profile
 
 The hosted application is stateless by design:

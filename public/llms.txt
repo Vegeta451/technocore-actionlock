@@ -41,6 +41,8 @@ Successfully returned and signed calls provide separate Ed25519 approval and exe
 
 Operators can print the public receipt identity with `npm run receipt:key`. This command must never be confused with publishing `receipt-signing-key.json`, which contains the private key.
 
+Local planned key transitions: `npm run receipt:transition -- <old-key.json> <new-key.json> <new-transition.json>` prepares a dual-signed public record from existing keys without activating anything. `npm run verify:transition -- <transition.json> <trusted-old-key-id>` verifies one hop against an independently pinned old ID. No automatic trust update, revocation, compromise recovery, latest-key guarantee, or externally anchored history is provided. See docs/key-transitions.md; never upload private signing-key files.
+
 Canonicalization conformance vectors: /conformance/canonical-json-v1.json. Six fixed cases include canonical text, UTF-8 hex and SHA-256. The actionlock-cjson-v1 profile uses JavaScript number formatting and property ordering; it is not RFC 8785 / JCS. See docs/canonicalization.md in the repository before implementing another verifier.
 
 ## Trust boundary

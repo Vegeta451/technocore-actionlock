@@ -16,7 +16,9 @@
     "mcp": "tsx src/mcp/index.ts",
     "approve": "tsx src/cli/approve.ts",
     "verify:receipt": "tsx src/cli/verify-receipt.ts",
-    "receipt:key": "tsx src/cli/receipt-key.ts"
+    "receipt:key": "tsx src/cli/receipt-key.ts",
+    "receipt:transition": "tsx src/cli/prepare-key-transition.ts",
+    "verify:transition": "tsx src/cli/verify-key-transition.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.17.5",

@@ -100,8 +100,10 @@ canonical unpadded base64url encoding, and an actual Ed25519 SPKI public key. Mi
 mistyped, and unknown fields are rejected, even if signed. A linked pair must contain
 an approval in the approval slot and an execution in the execution slot, signed by
 the same key. Listing multiple trusted key IDs does not authorize cross-key pairs.
-Keep a rotation between calls, not between approval and result; authenticated
-rotation history is not implemented. A timestamp is still an operator assertion,
+Keep a rotation between calls, not between approval and result. The optional
+[planned key-transition tools](key-transitions.md) verify a dual-signed one-hop
+handover; they do not activate keys or provide a complete, externally anchored
+rotation history. A timestamp is still an operator assertion,
 not independent time evidence. Valid historical `failed` receipts remain readable.
 
 ## Execution outcomes and reconciliation

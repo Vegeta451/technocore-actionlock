@@ -144,6 +144,7 @@ export default function DocsPage(): React.ReactElement {
         <p>Save the complete <code>publicReceipts</code> object to verify the linked approval and execution pair. V1 pairs require the correct receipt kinds and the same signing key; malformed signed fields and non-canonical signature encodings are rejected. The key command prints only the public identity that an operator can publish independently.</p>
         <p>Implementing a verifier? Compare your encoding against the <a href="/conformance/canonical-json-v1.json">fixed JSON, UTF-8 and SHA-256 vectors</a> and read the <a href="https://github.com/Vegeta451/technocore-actionlock/blob/main/docs/canonicalization.md">canonicalization specification</a>. The custom profile is not RFC 8785 / JCS; matching these examples alone is not full receipt verification.</p>
         <div className="guide-warning"><strong>Pin identity outside the receipt.</strong><span>The embedded public key proves signature integrity, not who owns the key. Publish the expected key ID through a trusted project page, release note, or DNS record. Never publish <code>receipt-signing-key.json</code>.</span></div>
+        <p>Changing receipt keys? The <a href="https://github.com/Vegeta451/technocore-actionlock/blob/main/docs/key-transitions.md">planned key-transition guide</a> covers a local handover signed by both keys. Preparation does not activate a key or change verifier trust. It is not revocation, compromise recovery, or an independently timestamped history.</p>
       </section>
 
       <section className="guide-section">
