@@ -8,7 +8,8 @@ import type { DownstreamExecutor, DownstreamServerConfig, GatewayConfig } from "
 import { issueEvidenceReceipt } from "../src/server/evidence";
 import { ActionLockGateway } from "../src/server/gateway";
 import { provenanceHash } from "../src/server/protocol";
-import { loadOrCreateReceiptSigner, verifyPublicReceipt } from "../src/server/public-receipt";
+import { loadOrCreateReceiptSigner, verifyPublicReceipt, verifyPublicReceiptBundle } from "../src/server/public-receipt";
+import { createKeyTransition, verifyKeyTransition } from "../src/server/key-transition";
 import { FileReplayStore } from "../src/server/replay";
 import type { ScanEvent } from "../src/server/types";
 
@@ -117,6 +118,37 @@ async function fixture() {
 }
 
 describe("enforced MCP gateway", () => {
+  it("preserves replay protection and historical receipts across a planned signer restart", async () => {
+    const { gateway, executor, evidenceToken, receiptSigner, auditPath, directory } = await fixture();
+    const request = { server: "trusted", tool: "write_report", arguments: { title: "Before rotation" }, evidenceToken };
+    const approvalToken = issueApprovalGrant({ actionHash: gateway.preview(request).decision.actionHash, secret: approvalSecret });
+    const before = await gateway.execute({ ...request, approvalToken });
+    expect(before.executed).toBe(true);
+
+    const nextSigner = await loadOrCreateReceiptSigner(join(directory, "next-receipt-key.json"));
+    const transition = createKeyTransition(receiptSigner, nextSigner);
+    expect(verifyKeyTransition(transition, receiptSigner.keyId).valid).toBe(true);
+    const restarted = new ActionLockGateway({
+      config, executor, evidenceSecret, approvalSecret, auditSecret, auditPath,
+      replayStore: new FileReplayStore(join(directory, "replay")),
+      receiptSigner: nextSigner,
+    });
+    const replay = await restarted.execute({ ...request, approvalToken });
+    expect(replay.approval).toBe("replayed");
+    expect(replay.executed).toBe(false);
+    expect(executor.calls).toBe(1);
+
+    const nextRequest = { ...request, arguments: { title: "After rotation" } };
+    const nextToken = issueApprovalGrant({ actionHash: restarted.preview(nextRequest).decision.actionHash, secret: approvalSecret });
+    const after = await restarted.execute({ ...nextRequest, approvalToken: nextToken });
+    expect(after.executed).toBe(true);
+    expect(executor.calls).toBe(2);
+    expect(verifyPublicReceiptBundle(before.publicReceipts, { expectedKeyIds: [receiptSigner.keyId] }).valid).toBe(true);
+    expect(verifyPublicReceiptBundle(after.publicReceipts, { expectedKeyIds: [nextSigner.keyId] }).valid).toBe(true);
+    expect(verifyPublicReceiptBundle(before.publicReceipts, { expectedKeyIds: [nextSigner.keyId] }).valid).toBe(false);
+    expect(verifyPublicReceiptBundle(after.publicReceipts, { expectedKeyIds: [receiptSigner.keyId] }).valid).toBe(false);
+  });
+
   it("derives policy from trusted config and never executes without exact approval", async () => {
     const { gateway, executor, evidenceToken } = await fixture();
     const request = {
