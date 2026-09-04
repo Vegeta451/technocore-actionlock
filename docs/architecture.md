@@ -20,6 +20,7 @@ Technocore room
   -> external human approval
   -> atomic replay consumption
   -> Ed25519 approval commitment over recomputable action-hash inputs
+  -> confirmed audit dispatch_intent (not proof of execution)
   -> configured downstream MCP call
   -> separate Ed25519 execution-result commitment
   -> locked audit entry + signed head checkpoint
@@ -36,7 +37,9 @@ Technocore room
 - Missing, invalid, expired, substituted, or replayed approval: not forwarded.
 - Downstream tool not advertised after startup: rejected.
 - Invalid audit chain: new entries are refused.
-- Audit byte or entry quota reached: the gateway fails closed instead of dropping records.
+- Audit byte or entry quota reached before dispatch: no downstream call. Failure after dispatch: preserve the observed outcome and report unconfirmed recording separately.
+
+Executor completion and evidence recording are separate states. `executionStatus` is `not_attempted`, `succeeded`, or `unknown`; `retrySafe` is always false. Transport exceptions and MCP `isError` responses are unknown because side effects cannot be ruled out. The V1 execution receipt format has no unknown state, so these outcomes return an approval receipt only. Normal successful responses retain the complete signed pair. Historical failed receipts remain verifiable; no format migration or key rotation is performed by this change.
 
 ## Local state
 

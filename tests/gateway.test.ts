@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -113,7 +113,7 @@ async function fixture() {
     receiptSigner,
   });
   const evidenceToken = issueEvidenceReceipt({ event: scanEvent(), secret: evidenceSecret }).token;
-  return { gateway, executor, evidenceToken, receiptSigner, auditPath };
+  return { gateway, executor, evidenceToken, receiptSigner, auditPath, directory };
 }
 
 describe("enforced MCP gateway", () => {
@@ -216,7 +216,7 @@ describe("enforced MCP gateway", () => {
     expect((await gateway.execute({ ...request, evidenceToken: secondEvidence, approvalToken })).approval).toBe("invalid");
   });
 
-  it("records a separately signed failed execution without changing the approval commitment", async () => {
+  it("reports unknown outcome after an executor error without signing a false failure", async () => {
     const { gateway, executor, evidenceToken } = await fixture();
     executor.fail = true;
     const request = {
@@ -230,13 +230,16 @@ describe("enforced MCP gateway", () => {
     const result = await gateway.execute({ ...request, approvalToken });
 
     expect(result.executed).toBe(false);
-    expect(result.publicReceipts?.approval.payload.actionHash).toBe(preview.decision.actionHash);
-    expect(result.publicReceipts?.execution.payload.execution).toBe("failed");
-    expect(result.publicReceipts?.execution.payload.outputHash).toBeNull();
-    expect(verifyPublicReceipt(result.publicReceipts?.execution).valid).toBe(true);
+    expect(result.executionStatus).toBe("unknown");
+    expect(result.retrySafe).toBe(false);
+    expect(result.approvalReceipt?.payload.actionHash).toBe(preview.decision.actionHash);
+    expect(result.publicReceipts).toBeUndefined();
+    expect(verifyPublicReceipt(result.approvalReceipt).valid).toBe(true);
+    expect((await gateway.execute({ ...request, approvalToken })).approval).toBe("replayed");
+    expect(executor.calls).toBe(1);
   });
 
-  it("does not misreport a receipt-signing failure as a downstream failure", async () => {
+  it("preserves success and refuses replay when post-action signing fails", async () => {
     const { gateway, executor, evidenceToken, receiptSigner, auditPath } = await fixture();
     const request = {
       server: "trusted",
@@ -250,8 +253,84 @@ describe("enforced MCP gateway", () => {
       throw new Error("receipt signer unavailable");
     });
 
-    await expect(gateway.execute({ ...request, approvalToken })).rejects.toThrow(/receipt signer unavailable/);
+    const result = await gateway.execute({ ...request, approvalToken });
+    expect(result).toMatchObject({ executed: true, executionStatus: "succeeded", retrySafe: false });
+    expect(result.recordingErrors).toContain("receipt_signing_failed");
+    expect(result.approvalReceipt).toBeDefined();
     expect(executor.calls).toBe(1);
-    expect((await verifyAuditChain(auditPath, { checkpointSecret: auditSecret })).entries).toBe(0);
+    expect((await verifyAuditChain(auditPath, { checkpointSecret: auditSecret })).entries).toBe(2);
+    expect((await gateway.execute({ ...request, approvalToken })).approval).toBe("replayed");
+    expect(executor.calls).toBe(1);
+  });
+
+  it("preserves the outcome when output serialization fails", async () => {
+    const { gateway, executor, evidenceToken } = await fixture();
+    vi.spyOn(executor, "call").mockResolvedValue({ unsupported: 1n } as never);
+    const request = { server: "trusted", tool: "write_report", arguments: {}, evidenceToken };
+    const approvalToken = issueApprovalGrant({ actionHash: gateway.preview(request).decision.actionHash, secret: approvalSecret });
+    const result = await gateway.execute({ ...request, approvalToken });
+    expect(result).toMatchObject({ executed: true, executionStatus: "succeeded", retrySafe: false });
+    expect(result.recordingErrors).toContain("output_serialization_failed");
+    expect(result.output).toBeUndefined();
+    expect(() => JSON.stringify(result)).not.toThrow();
+  });
+
+  it("does not sign an MCP isError response as successful execution", async () => {
+    const { gateway, executor, evidenceToken } = await fixture();
+    const call = vi.spyOn(executor, "call").mockResolvedValue({ isError: true, content: [{ type: "text", text: "partial write then error" }] } as never);
+    const request = { server: "trusted", tool: "write_report", arguments: {}, evidenceToken };
+    const approvalToken = issueApprovalGrant({ actionHash: gateway.preview(request).decision.actionHash, secret: approvalSecret });
+    const result = await gateway.execute({ ...request, approvalToken });
+    expect(result).toMatchObject({ executed: false, executionStatus: "unknown", retrySafe: false });
+    expect(result.publicReceipts).toBeUndefined();
+    expect(result.error).not.toContain("partial write then error");
+    await gateway.execute({ ...request, approvalToken });
+    expect(call).toHaveBeenCalledOnce();
+  });
+
+  it("still attempts audit when signing fails, and reports both failures", async () => {
+    const { gateway, executor, evidenceToken, auditPath, receiptSigner } = await fixture();
+    vi.spyOn(executor, "call").mockImplementation(async () => {
+      await writeFile(auditPath, "corrupted-after-effect\n");
+      return { ok: true } as never;
+    });
+    vi.spyOn(receiptSigner, "signExecution").mockImplementation(() => { throw new Error("signer fault"); });
+    const request = { server: "trusted", tool: "write_report", arguments: {}, evidenceToken };
+    const approvalToken = issueApprovalGrant({ actionHash: gateway.preview(request).decision.actionHash, secret: approvalSecret });
+    const result = await gateway.execute({ ...request, approvalToken });
+    expect(result.executionStatus).toBe("succeeded");
+    expect(result.recordingErrors).toEqual(["receipt_signing_failed", "audit_write_failed"]);
+    expect(() => JSON.stringify(result)).not.toThrow();
+  });
+
+  it("stops before dispatch when the audit destination is unavailable", async () => {
+    const { gateway, executor, evidenceToken, auditPath } = await fixture();
+    await writeFile(auditPath, "not-json\n");
+    const request = { server: "trusted", tool: "write_report", arguments: {}, evidenceToken };
+    const approvalToken = issueApprovalGrant({ actionHash: gateway.preview(request).decision.actionHash, secret: approvalSecret });
+    const result = await gateway.execute({ ...request, approvalToken });
+    expect(result).toMatchObject({ executed: false, executionStatus: "not_attempted", approval: "consumed" });
+    expect(result.recordingErrors).toContain("audit_write_failed");
+    expect(executor.calls).toBe(0);
+  });
+
+  it("does not rerun after an audit failure following a real effect, including restart", async () => {
+    const { gateway, executor, evidenceToken, auditPath, directory, receiptSigner } = await fixture();
+    const call = vi.spyOn(executor, "call").mockImplementation(async () => {
+      await writeFile(auditPath, "corrupted-after-effect\n");
+      return { ok: true } as never;
+    });
+    const request = { server: "trusted", tool: "write_report", arguments: {}, evidenceToken };
+    const approvalToken = issueApprovalGrant({ actionHash: gateway.preview(request).decision.actionHash, secret: approvalSecret });
+    const result = await gateway.execute({ ...request, approvalToken });
+    expect(result).toMatchObject({ executed: true, executionStatus: "succeeded", retrySafe: false });
+    expect(result.recordingErrors).toContain("audit_write_failed");
+    const restarted = new ActionLockGateway({ config, executor, evidenceSecret, approvalSecret, auditSecret,
+      replayStore: new FileReplayStore(join(directory, "replay")), auditPath, receiptSigner });
+    const replay = await restarted.execute({ ...request, approvalToken });
+    expect(replay).toMatchObject({ approval: "replayed", executionStatus: "not_attempted", retrySafe: false });
+    expect(replay.recordingErrors).toContain("audit_write_failed");
+    expect(replay.error).toContain("previous attempt may have produced effects");
+    expect(call).toHaveBeenCalledOnce();
   });
 });

@@ -10,7 +10,7 @@ export interface AuditInput {
   evidenceId?: string;
   server?: string;
   tool?: string;
-  execution?: "not_attempted" | "succeeded" | "failed";
+  execution?: "not_attempted" | "dispatch_intent" | "succeeded" | "failed" | "unknown";
   outputHash?: string;
   errorCode?: string;
 }
@@ -24,7 +24,7 @@ export interface AuditEntry {
   evidenceId: string | null;
   server: string | null;
   tool: string | null;
-  execution: "not_attempted" | "succeeded" | "failed";
+  execution: "not_attempted" | "dispatch_intent" | "succeeded" | "failed" | "unknown";
   outputHash: string | null;
   errorCode: string | null;
   previousHash: string | null;

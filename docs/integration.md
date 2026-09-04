@@ -87,10 +87,24 @@ Restart the MCP client. It should discover only these ActionLock tools:
 
 Approvals expire after 120 seconds and are consumed before the downstream call starts. Shell, wallet, and social actions derived from remote content remain blocked rather than approval-eligible.
 
-The `actionlock_execute` response returns the linked pair at `publicReceipts.approval` and `publicReceipts.execution`. Save the complete `publicReceipts` object to verify the pair, or save one member to verify that receipt without the gateway secret:
+When completion and receipt signing succeed, `actionlock_execute` returns the linked pair at `publicReceipts.approval` and `publicReceipts.execution`. Save the complete `publicReceipts` object to verify the pair, or save one member to verify that receipt without the gateway secret. For incomplete results, follow the outcome handling below:
 
 ```bash
 npm run verify:receipt -- receipt.json <expected-key-id>
 ```
 
 Always obtain the expected key ID through a separately trusted channel. Reading it only from the receipt verifies signature integrity but not the operator's identity. The approval receipt records what the gateway allowed before execution; the execution receipt separately records success or failure and links back to the approval receipt hash.
+
+## Execution outcomes and reconciliation
+
+Read `executionStatus`, not only the legacy `executed` boolean:
+
+- `not_attempted`: this request was not forwarded. An approval may already have been consumed.
+- `succeeded`: the executor returned without a tool error. This is a gateway observation, not independent proof of the real-world effect.
+- `unknown`: the executor threw or returned an MCP `isError` result. Effects may already have occurred; this does not imply rollback.
+
+Every result has `retrySafe: false`. Do not automatically resubmit or obtain a fresh approval after an uncertain outcome. Reconcile using the downstream system's records and the action hash. A new approval has a new grant ID and can cause a second effect; replay protection is per grant, not exactly-once execution across approvals.
+
+The gateway records `dispatch_intent` before calling the executor. If that audit write cannot be confirmed, no call is made. An intent alone does not prove dispatch or completion: a crash can occur on either side of the call. After the call, output serialization, receipt signing, and audit failures appear separately in `recordingErrors`; they do not erase the observed outcome. `audit_write_failed` means recording was not confirmed, not that no bytes were written (append may precede a failed checkpoint).
+
+`approvalReceipt` preserves the signed approval when available. A complete `publicReceipts` pair is returned only when a successful response was hashed and signed. Unknown outcomes have no execution receipt; the legacy V1 `failed` receipt format remains readable but is not used to claim that a transport error caused no effect. Preserve the response and repair recording before further execution. Process termination or connection loss can still prevent delivery of this response.

@@ -52,6 +52,10 @@ export interface GatewayPreview {
 
 export interface GatewayResult extends GatewayPreview {
   executed: boolean;
+  executionStatus: "not_attempted" | "succeeded" | "unknown";
+  retrySafe: false;
+  recordingErrors?: Array<"output_serialization_failed" | "receipt_signing_failed" | "audit_write_failed">;
+  approvalReceipt?: PublicReceipt<ApprovalCommitment>;
   approval: "not_required" | "required" | "invalid" | "replayed" | "consumed";
   output?: unknown;
   error?: string;
@@ -105,6 +109,8 @@ export class ActionLockGateway {
         review: prepared.review,
         decision: initial,
         executed: false,
+        executionStatus: "not_attempted",
+        retrySafe: false,
         approval: "not_required",
       };
     }
@@ -118,6 +124,8 @@ export class ActionLockGateway {
           review: prepared.review,
           decision: initial,
           executed: false,
+          executionStatus: "not_attempted",
+          retrySafe: false,
           approval: "required",
         };
       }
@@ -134,19 +142,30 @@ export class ActionLockGateway {
           review: prepared.review,
           decision: initial,
           executed: false,
+          executionStatus: "not_attempted",
+          retrySafe: false,
           approval: "invalid",
         };
       }
       const consumed = await this.options.replayStore.consume(grant.grantId, grant.expiresAt);
       if (!consumed) {
-        await this.audit(prepared.evidence, request, initial, "not_attempted", undefined, "approval_replay");
+        const recordingErrors: NonNullable<GatewayResult["recordingErrors"]> = [];
+        try {
+          await this.audit(prepared.evidence, request, initial, "not_attempted", undefined, "approval_replay");
+        } catch {
+          recordingErrors.push("audit_write_failed");
+        }
         return {
           evidence: prepared.evidence,
           risk: prepared.risk,
           review: prepared.review,
           decision: initial,
           executed: false,
+          executionStatus: "not_attempted",
+          retrySafe: false,
           approval: "replayed",
+          recordingErrors,
+          error: "Approval already consumed. This request was not forwarded; a previous attempt may have produced effects. Reconcile before seeking a new approval.",
         };
       }
       const allowed = evaluateCapability({
@@ -244,65 +263,89 @@ export class ActionLockGateway {
     approval: GatewayResult["approval"],
     approvalReceipt?: PublicReceipt<ApprovalCommitment>,
   ): Promise<GatewayResult> {
-    let output: unknown;
+    const recordingErrors: NonNullable<GatewayResult["recordingErrors"]> = [];
+    const result: GatewayResult = {
+      evidence: prepared.evidence,
+      risk: prepared.risk,
+      review: prepared.review,
+      decision,
+      executed: false,
+      executionStatus: "not_attempted",
+      retrySafe: false,
+      approval,
+      approvalReceipt,
+      recordingErrors,
+    };
+
+    // Refuse dispatch if we cannot record intent. An intent is not proof of execution.
     try {
-      output = await this.options.executor.call(prepared.server, request.tool, request.arguments);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Downstream execution failed";
-      const executionReceipt = approvalReceipt && this.options.receiptSigner
-        ? this.options.receiptSigner.signExecution({
-            actionHash: decision.actionHash,
-            approvalReceiptHash: publicReceiptHash(approvalReceipt),
-            execution: "failed",
-            outputHash: null,
-            errorCode: "downstream_error",
-          })
-        : undefined;
-      await this.audit(prepared.evidence, request, decision, "failed", undefined, "downstream_error");
-      return {
-        evidence: prepared.evidence,
-        risk: prepared.risk,
-        review: prepared.review,
-        decision,
-        executed: false,
-        approval,
-        error: message,
-        publicReceipts: approvalReceipt && executionReceipt
-          ? { approval: approvalReceipt, execution: executionReceipt }
-          : undefined,
-      };
+      await this.audit(prepared.evidence, request, decision, "dispatch_intent");
+    } catch {
+      recordingErrors.push("audit_write_failed");
+      result.error = "Audit intent could not be confirmed; no downstream call was made. Approval remains consumed.";
+      return result;
     }
 
-    const outputHash = jsonHash(output);
-    const executionReceipt = approvalReceipt && this.options.receiptSigner
-      ? this.options.receiptSigner.signExecution({
+    let output: unknown;
+    let errorCode: string | undefined;
+    try {
+      output = await this.options.executor.call(prepared.server, request.tool, request.arguments);
+      if (output !== null && typeof output === "object" && "isError" in output && output.isError === true) {
+        result.executionStatus = "unknown";
+        errorCode = "downstream_tool_error";
+      } else {
+        result.executed = true;
+        result.executionStatus = "succeeded";
+      }
+    } catch {
+      // Transport errors can happen after a side effect. Never infer rollback.
+      result.executionStatus = "unknown";
+      errorCode = "downstream_outcome_unknown";
+    }
+    if (result.executionStatus === "unknown") {
+      result.error = "Downstream outcome is unknown; effects may have occurred. Do not retry automatically or obtain a new approval before reconciliation.";
+    }
+
+    let outputHash: string | undefined;
+    if (result.executed) {
+      try {
+        // Return the same JSON snapshot that was hashed; never return an unserializable object.
+        const serialized = canonicalJson(output);
+        result.output = JSON.parse(serialized) as unknown;
+        outputHash = jsonHash(result.output);
+      } catch {
+        recordingErrors.push("output_serialization_failed");
+      }
+    }
+
+    if (result.executed && outputHash && approvalReceipt && this.options.receiptSigner) {
+      try {
+        const execution = this.options.receiptSigner.signExecution({
           actionHash: decision.actionHash,
           approvalReceiptHash: publicReceiptHash(approvalReceipt),
           execution: "succeeded",
           outputHash,
           errorCode: null,
-        })
-      : undefined;
-    await this.audit(prepared.evidence, request, decision, "succeeded", outputHash);
-    return {
-      evidence: prepared.evidence,
-      risk: prepared.risk,
-      review: prepared.review,
-      decision,
-      executed: true,
-      approval,
-      output,
-      publicReceipts: approvalReceipt && executionReceipt
-        ? { approval: approvalReceipt, execution: executionReceipt }
-        : undefined,
-    };
+        });
+        result.publicReceipts = { approval: approvalReceipt, execution };
+      } catch {
+        recordingErrors.push("receipt_signing_failed");
+      }
+    }
+    try {
+      await this.audit(prepared.evidence, request, decision, result.executionStatus, outputHash, errorCode ?? recordingErrors[0]);
+    } catch {
+      // The append may have succeeded before checkpoint failure; do not claim no record exists.
+      recordingErrors.push("audit_write_failed");
+    }
+    return result;
   }
 
   private async audit(
     evidence: EvidenceClaims,
     request: Pick<GatewayRequest, "server" | "tool">,
     decision: ActionLockDecision,
-    execution: "not_attempted" | "succeeded" | "failed",
+    execution: "not_attempted" | "dispatch_intent" | "succeeded" | "failed" | "unknown",
     outputHash?: string,
     errorCode?: string,
   ): Promise<void> {

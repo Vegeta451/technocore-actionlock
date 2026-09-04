@@ -37,7 +37,7 @@ The MCP server exposes only:
 
 Remote messages cannot authorize shell, wallet, or social actions. Eligible downstream calls require an exact, short-lived, one-time approval bound to evidence, server, tool, executable policy, target, and canonical arguments.
 
-Approved calls return separate Ed25519 approval and execution receipts. The approval receipt is signed before the downstream call and contains the inputs needed to recompute the action hash. The result receipt links to the approval receipt hash. Verify a saved receipt with `npm run verify:receipt -- receipt.json <expected-key-id>`. The embedded public key proves integrity only; obtain the expected key ID through a separately trusted channel.
+Successfully returned and signed calls provide separate Ed25519 approval and execution receipts. Unknown outcomes or recording failures may provide only approvalReceipt. Read executionStatus (not_attempted, succeeded, unknown) and recordingErrors; retrySafe is always false. An error may follow a real effect: never automatically retry or obtain a new approval before downstream reconciliation. The approval receipt is signed before the downstream call and contains the inputs needed to recompute the action hash. The result receipt links to the approval receipt hash. Verify a saved receipt with `npm run verify:receipt -- receipt.json <expected-key-id>`. The embedded public key proves integrity only; obtain the expected key ID through a separately trusted channel.
 
 Operators can print the public receipt identity with `npm run receipt:key`. This command must never be confused with publishing `receipt-signing-key.json`, which contains the private key.
 

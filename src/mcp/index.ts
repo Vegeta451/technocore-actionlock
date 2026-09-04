@@ -104,6 +104,7 @@ server.tool(
   async (input) => {
     try {
       const result = await gateway.execute(input);
+      // A recording failure must not turn a completed call into a generic retryable error.
       return { isError: !result.executed, content: [{ type: "text", text: JSON.stringify(result) }] };
     } catch (error) {
       const message = error instanceof Error ? error.message : "Gateway execution failed";

@@ -34,6 +34,7 @@ The model cannot declare its own capability class, invent evidence, substitute t
 - Audit appenders use an inter-process lock and refuse to extend an invalid chain.
 - Ed25519 approval receipts contain the complete action-hash inputs; execution receipts link to the approval receipt without rewriting what was approved.
 - The hosted web console has no root secret, downstream config, private key, write tool, or approval issuer.
+- A confirmed audit intent is required before dispatch. Post-call recording failures preserve the observed outcome instead of returning a misleading generic failure. Unknown outcomes require manual reconciliation, never automatic retry; see [execution outcome handling](docs/integration.md#execution-outcomes-and-reconciliation).
 
 ## Policy rules
 
@@ -132,7 +133,7 @@ npm run approve -- <64-character-action-hash>
 
 Pass the returned token to `actionlock_execute` without changing any argument. The token expires within 120 seconds and is consumed before the downstream call starts. A failed downstream call still consumes it.
 
-An approved execution returns two public receipts under `publicReceipts`: an `approval` commitment signed before the downstream call and an `execution` commitment signed after it. Save the complete `publicReceipts` object to verify the linked pair, or save either receipt to verify it independently:
+A successfully returned and signed execution provides two public receipts under `publicReceipts`: an `approval` commitment signed before the downstream call and an `execution` commitment signed after it. Unknown outcomes or recording failures may provide only `approvalReceipt`; inspect `executionStatus` and `recordingErrors`, and never automatically retry. Save a complete `publicReceipts` object to verify the linked pair, or save either receipt to verify it independently:
 
 ```bash
 npm run verify:receipt -- receipt.json <expected-key-id>

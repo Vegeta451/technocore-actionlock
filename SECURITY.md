@@ -37,8 +37,9 @@
 
 - The live Technocore read API may expose a DID and nonce without the original signature. Such records are labelled `server_signed_lane`, not independently verified.
 - Pattern findings are triage evidence, not proof that text is malicious or safe.
-- Approval is consumed before forwarding. A downstream timeout or failure requires a fresh human review and approval.
-- Audit storage has hard byte and entry quotas. Quota or storage failures stop the gateway rather than dropping audit records.
+- Approval is consumed before forwarding. A timeout or tool error may follow an actual side effect. Reconcile downstream records before considering a new approval; a fresh grant can repeat the action. Replay protection is per grant, not exactly-once execution.
+- Audit storage has hard byte and entry quotas. Intent must be recorded before dispatch, so an unavailable or full audit stops new calls. Recording failures after dispatch are reported separately and cannot undo the effect. An append may precede a failed checkpoint, so `audit_write_failed` does not prove the record is absent.
+- A successful executor response is a gateway observation, not proof of the real-world effect. Unknown outcomes are not signed as failures. Process termination or response loss may still leave only an intent and a consumed grant; automatic retry is unsafe.
 - The HMAC checkpoint does not prevent coordinated rollback of both local audit files. Export the head hash to an external append-only log when rollback detection matters.
 - Root-secret compromise allows forged local evidence, approvals, and checkpoints. Rotate it and discard untrusted local state after compromise.
 - Receipt-key compromise allows forged public receipts for that key ID. Rotate to a new key file, publish the new key ID, and mark the old key's compromise time externally.

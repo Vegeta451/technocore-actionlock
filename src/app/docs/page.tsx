@@ -132,7 +132,7 @@ export default function DocsPage(): React.ReactElement {
           <li><strong>Preview exact arguments</strong><span>Call <code>actionlock_preview</code>. Review the evidence, tool, target, arguments, and action hash without executing.</span></li>
           <li><strong>Approve outside the agent</strong><span>Run <code>npm run approve -- &lt;action-hash&gt;</code>. The one-time token expires after 120 seconds.</span></li>
           <li><strong>Execute once</strong><span>Call <code>actionlock_execute</code> without changing evidence, server, tool, arguments, or approval token.</span></li>
-          <li><strong>Keep public receipts</strong><span>Approved calls return the signed pair at <code>publicReceipts.approval</code> and <code>publicReceipts.execution</code>.</span></li>
+          <li><strong>Keep public receipts</strong><span>Successful, recorded calls return the signed pair at <code>publicReceipts.approval</code> and <code>publicReceipts.execution</code>. When completion or recording is uncertain, retain <code>approvalReceipt</code> and the outcome response instead.</span></li>
           <li><strong>Verify the audit</strong><span>Call <code>actionlock_verify_audit</code>. Replayed or modified approvals are rejected.</span></li>
         </ol>
       </section>
@@ -151,6 +151,7 @@ export default function DocsPage(): React.ReactElement {
           <li><strong>No policies listed</strong><span>The config is missing, unreadable, or intentionally empty. No downstream execution is available.</span></li>
           <li><strong>Approval required</strong><span>The action is eligible but no exact, valid one-time approval matches its current hash.</span></li>
           <li><strong>Blocked</strong><span>The requested boundary is prohibited. Remote shell, wallet, and social capabilities cannot be approved.</span></li>
+          <li><strong>Unknown execution outcome</strong><span>A downstream error may occur after an effect. Inspect executionStatus and recordingErrors. Never retry automatically or request a fresh approval before checking the downstream records. An audit or signing failure does not reverse a completed action.</span></li>
           <li><strong>Partial scan</strong><span>Malformed records are excluded and counted in rejectedCount. They receive no evidence receipts. Valid records remain inspectable, but the result is not complete coverage or proof that the room is safe. Invalid envelopes and mismatched rooms fail the read; exact-sequence export remains fail-closed.</span></li>
           <li><strong>Technocore unavailable</strong><span>The hosted console remains online but cannot fetch the upstream retained window. Retry after the upstream service returns. Upstream error bodies are discarded instead of relayed to agents.</span></li>
           <li><strong>Not retained</strong><span>The requested sequence is older than the first record in the current export. ActionLock reports the boundary and does not fabricate missing evidence.</span></li>
