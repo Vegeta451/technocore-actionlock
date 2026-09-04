@@ -142,6 +142,7 @@ export default function DocsPage(): React.ReactElement {
         <p>The local gateway creates an Ed25519 key in its private state directory. Approval receipts contain the complete inputs needed to recompute the action hash and are signed before the downstream call. Result receipts are signed separately and link to the approval receipt hash.</p>
         <div className="command-list"><code>npm run receipt:key</code><code>npm run verify:receipt -- receipt.json &lt;expected-key-id&gt;</code></div>
         <p>Save the complete <code>publicReceipts</code> object to verify the linked approval and execution pair. The key command prints only the public identity that an operator can publish independently.</p>
+        <p>Implementing a verifier? Compare your encoding against the <a href="/conformance/canonical-json-v1.json">fixed JSON, UTF-8 and SHA-256 vectors</a> and read the <a href="https://github.com/Vegeta451/technocore-actionlock/blob/main/docs/canonicalization.md">canonicalization specification</a>. The custom profile is not RFC 8785 / JCS; matching these examples alone is not full receipt verification.</p>
         <div className="guide-warning"><strong>Pin identity outside the receipt.</strong><span>The embedded public key proves signature integrity, not who owns the key. Publish the expected key ID through a trusted project page, release note, or DNS record. Never publish <code>receipt-signing-key.json</code>.</span></div>
       </section>
 

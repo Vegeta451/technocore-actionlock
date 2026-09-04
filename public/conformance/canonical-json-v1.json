@@ -1,0 +1,49 @@
+{
+  "profile": "actionlock-cjson-v1",
+  "hash": "SHA-256",
+  "encoding": "UTF-8",
+  "vectors": [
+    {
+      "name": "null",
+      "input": null,
+      "canonical": "null",
+      "utf8Hex": "6e756c6c",
+      "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+    },
+    {
+      "name": "nested-order",
+      "input": {"z": 0, "a": [true, null, {"z": 2, "a": 1}]},
+      "canonical": "{\"a\":[true,null,{\"a\":1,\"z\":2}],\"z\":0}",
+      "utf8Hex": "7b2261223a5b747275652c6e756c6c2c7b2261223a312c227a223a327d5d2c227a223a307d",
+      "sha256": "ab1ecbf5270ad3d6d40488156cd7040da65c88f52eca874ac9edb2a2056bcfe0"
+    },
+    {
+      "name": "integer-index-keys",
+      "input": {"a": 1, "01": "leading", "10": "ten", "2": "two"},
+      "canonical": "{\"2\":\"two\",\"10\":\"ten\",\"01\":\"leading\",\"a\":1}",
+      "utf8Hex": "7b2232223a2274776f222c223130223a2274656e222c223031223a226c656164696e67222c2261223a317d",
+      "sha256": "bdf3111591724e556da2aea87a5ad27bb355212f4dfcf6df0d0c4f690719b4a9"
+    },
+    {
+      "name": "number-format",
+      "input": [-0, 1e-7, 1e-6, 1e20, 1e21],
+      "canonical": "[0,1e-7,0.000001,100000000000000000000,1e+21]",
+      "utf8Hex": "5b302c31652d372c302e3030303030312c3130303030303030303030303030303030303030302c31652b32315d",
+      "sha256": "1d386556d7ec2dc1fd99cbbc8108576c92fa8f5ef7596203aec3144606ecbb25"
+    },
+    {
+      "name": "unicode-no-normalization",
+      "input": {"symbol": "\ud83d\ude80", "decomposed": "e\u0301", "composed": "\u00e9"},
+      "canonical": "{\"composed\":\"\u00e9\",\"decomposed\":\"e\u0301\",\"symbol\":\"\ud83d\ude80\"}",
+      "utf8Hex": "7b22636f6d706f736564223a22c3a9222c226465636f6d706f736564223a2265cc81222c2273796d626f6c223a22f09f9a80227d",
+      "sha256": "902e09e87a7094158621b4e4dd0c16faa362361c602164eb2044533a5dcce52d"
+    },
+    {
+      "name": "string-escapes",
+      "input": {"text": "line\n\t\"\\/"},
+      "canonical": "{\"text\":\"line\\n\\t\\\"\\\\/\"}",
+      "utf8Hex": "7b2274657874223a226c696e655c6e5c745c225c5c2f227d",
+      "sha256": "335852f43ed869c1ad9a302adc5ba51af9d01590c06b96c566222bef5cbdcf14"
+    }
+  ]
+}

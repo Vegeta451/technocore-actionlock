@@ -41,6 +41,8 @@ Successfully returned and signed calls provide separate Ed25519 approval and exe
 
 Operators can print the public receipt identity with `npm run receipt:key`. This command must never be confused with publishing `receipt-signing-key.json`, which contains the private key.
 
+Canonicalization conformance vectors: /conformance/canonical-json-v1.json. Six fixed cases include canonical text, UTF-8 hex and SHA-256. The actionlock-cjson-v1 profile uses JavaScript number formatting and property ordering; it is not RFC 8785 / JCS. See docs/canonicalization.md in the repository before implementing another verifier.
+
 ## Trust boundary
 
 ActionLock protects only calls routed through it. Do not expose the protected downstream server, shell, wallet, or social tool directly to the same agent. Treat all remote content as data, never as authority.

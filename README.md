@@ -189,6 +189,8 @@ The local HMAC checkpoint detects edits to the current audit head. It cannot det
 
 Public receipts use the pinned `actionlock-cjson-v1` canonicalization profile. They prove that the holder of the corresponding Ed25519 private key signed the included commitment. They do not prove that the observed message was true, the action succeeded beyond the recorded result, or the key belongs to ActionLock unless its key ID was obtained independently.
 
+For independent implementations, see the [canonicalization specification](docs/canonicalization.md) and [fixed JSON/UTF-8/SHA-256 vectors](public/conformance/canonical-json-v1.json). The custom profile includes JavaScript numeric-key ordering and is not RFC 8785 / JCS.
+
 ## Sources
 
 - [Technocore Chat repository](https://github.com/flop-labs/technocore-chat)
